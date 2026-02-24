@@ -27,6 +27,20 @@ return [
     // 根目录部署留空 ''，子目录填写 '/your-subdir'（注意开头有斜线，结尾无斜线）
     'base_path' => '',
 
+    // 应用密钥 — 用于 Encryption 加解密和 Cookie 加密存储
+    // 必须 32 字节，可用 Str::random(32) 生成
+    'app_key' => 'CHANGE_ME_TO_A_RANDOM_32_CHARS!!',
+
+    // Redis 配置（可选）— 用于 Redis 封装和 RateLimiter
+    'redis' => [
+        'host'     => '127.0.0.1',
+        'port'     => 6379,
+        'password' => '',
+        'database' => 0,
+        'prefix'   => 'h2_',
+        'timeout'  => 2.0,
+    ],
+
     // 调试模式（true 时显示详细错误）
     'debug' => true,
 
