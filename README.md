@@ -15,9 +15,15 @@ H2PHP 是一个极简的单入口 PHP 框架。路由即目录结构，模板与
 - **单入口路由** — 所有请求经由根目录 `index.php` 分发
 - **目录即路由** — URL 结构与文件目录一一对应，一眼看懂
 - **数字位置参数** — URL 中的数字段自动注入为方法参数（分页、ID 等）
-- **模板分离** — 控制器与 HTML 模板完全隔离，模板中可使用 PHP 语法
-- **极简依赖** — 仅需 PHP 7.2+，无需 Composer，无需任何第三方库
-- **链式 DB** — 内置 PDO 封装，支持链式查询，也支持原生 SQL
+- **模板** — 布局（Layout）、局部模板（Partial）、变量传递，保留原生 PHP 语法
+- **极简依赖** — 仅需 PHP 7.2+，运行时零 Composer 依赖
+- **链式 DB** — PDO 封装，支持链式查询 / 关联关系 / 查询缓存
+- **表单验证** — 13 种内置规则，支持自定义标签和数据库唯一性校验
+- **CSRF / Flash / 分页** — 开箱即用
+- **队列 + 事件** — 数据库/Redis 双驱动，`php h2 queue:work` 启动 Worker
+- **数据库迁移** — `migrations/` 目录，按批次执行/回滚
+- **CLI 工具** — `php h2 make:controller` / `make:view` / `migrate` / `queue:work` / `test`
+- **PHPUnit 测试** — 内置 Unit/Feature 套件，示例测试覆盖 Validator 与 DB
 
 ---
 
@@ -25,26 +31,46 @@ H2PHP 是一个极简的单入口 PHP 框架。路由即目录结构，模板与
 
 ```
 h2php/
+├── h2                     # CLI 工具（php h2 <命令>）
 ├── index.php              # 单入口引导（无需修改）
 ├── .htaccess              # Apache URL 重写
 ├── nginx.conf.example     # Nginx 配置参考
+├── composer.json          # 仅含开发依赖（phpunit）
 │
 ├── config/
-│   └── config.php         # 数据库、路由默认值、调试开关
+│   └── config.php         # 数据库、缓存、队列配置
 │
 ├── lib/                   # 框架核心（无需修改）
 │   ├── Router.php         # 路由解析与分发
-│   ├── Core.php           # 基类控制器
-│   ├── DB.php             # PDO 数据库封装
-│   └── Request.php        # 请求封装
+│   ├── Core.php           # 基类控制器（所有特性入口）
+│   ├── DB.php             # PDO 链式查询 + 缓存 + 关联
+│   ├── Request.php        # 请求封装
+│   ├── Validator.php      # 表单验证器（13 种规则）
+│   ├── Cache.php          # 查询缓存（file/redis/memcache）
+│   ├── Event.php          # 请求内事件总线
+│   └── Queue.php          # 持久化队列（database/redis）
 │
 ├── app/                   # 你的控制器代码
-│   └── {模块}/{功能}.php
+│   ├── {模块}/{功能}.php
+│   └── jobs/              # 队列 Job 文件
+│       └── SendWelcomeEmail.php
 │
-├── views/                 # HTML 模板（支持两级，见下方说明）
-│   ├── _layouts/            # 布局文件
-│   ├── _partials/           # 局部模板
-│   ├── _errors/             # 自定义错误页
+├── migrations/            # 数据库迁移文件
+│   └── 001_create_users_table.php
+│
+├── tests/                 # 测试文件（PHPUnit）
+│   ├── bootstrap.php
+│   ├── config.php         # 测试数据库配置
+│   └── Unit/
+│       ├── ValidatorTest.php
+│       └── DBTest.php
+│
+├── cache/                 # file 驱动缓存目录（.gitkeep）
+│
+├── views/                 # HTML 模板
+│   ├── _layouts/          # 布局文件
+│   ├── _partials/         # 局部模板
+│   ├── _errors/           # 自定义错误页
 │   │   ├── 404.html
 │   │   └── 500.html
 │   ├── {模块}/{功能}/{方法}.html   # 精确到方法（优先）
@@ -191,25 +217,41 @@ class main extends \Lib\Core
 
 ## Core 基类 API
 
+**模板与响应：**
+
 | 方法 | 说明 |
 |------|------|
 | `$this->set($key, $val)` | 向模板传递变量 |
 | `$this->setMulti($array)` | 批量传递变量 |
 | `$this->render($tpl)` | 渲染模板（默认同名模板） |
-| `$this->json($data)` | 输出 JSON（API 接口用） |
-| `$this->redirect($url)` | 跳转 |
-| `$this->layout($name)` | 设置布局文件 |
-| `$this->partial($name)` | 引入局部模板 |
-| `$this->flash($type, $msg)` | 设置 Flash 消息（跨请求一次性） |
+| `$this->json($data)` | 输出 JSON |
+| `$this->redirect($url)` | 跳转（默认 302） |
+| `$this->layout($name)` | 设置布局文件 (`_layouts/`) |
+| `$this->partial($name)` | 引入局部模板 (`_partials/`) |
+
+**功能辅助：**
+
+| 方法 | 说明 |
+|------|------|
+| `$this->flash($type, $msg)` | 设置跨请求 Flash 消息 |
 | `$this->getFlash($type)` | 读取并清除指定 Flash |
 | `$this->getAllFlash()` | 读取并清除所有 Flash |
-| `$this->paginate($total,$page,$size,$url)` | 生成分页数据数组 |
+| `$this->paginate($total, $page, $size, $url)` | 生成分页数组 |
+| `$this->validate($data, $rules, $labels)` | 创建验证器，返回 `Validator` 实例 |
+| `$this->csrfToken()` | 获取/生成 CSRF Token |
 | `$this->csrfField()` | 返回 CSRF 隐藏字段 HTML |
-| `$this->csrfVerify()` | 校验 CSRF token |
+| `$this->csrfVerify()` | 校验 POST 中的 CSRF token，失败返回 403 |
+| `$this->on($event, $fn)` | 注册事件监听器（请求内有效） |
+| `$this->fire($event, $data)` | 触发事件 |
+| `$this->queue($jobName, $payload)` | 将任务推入队列（异步执行） |
 
+**属性与钩子：**
+
+| | 说明 |
+|-|------|
 | `$this->db` | DB 实例（懒加载） |
 | `$this->request` | Request 实例（懒加载） |
-| `before()` | 钩子：方法执行前（可在子类覆盖，用于鉴权） |
+| `before()` | 钩子：方法执行前（子类覆盖，用于鉴权） |
 | `after()` | 钩子：方法执行后 |
 
 ---
@@ -277,22 +319,6 @@ views/_errors/
 ```
 
 模板内可用三个变量：`$code`（状态码）、`$title`（标题）、`$message`（详细信息）。不存在时自动回退内置样式。
----
-
-## CLI 工具
-
-```bash
-# 生成控制器（自动创建 app/user/login.php）
-php h2 make:controller user/login
-
-# 生成视图模板（自动创建 views/user/login/index.html）
-php h2 make:view user/login/index
-
-# 数据库迁移
-php h2 migrate            # 运行未执行的迁移
-php h2 migrate:rollback   # 回滚上一批迁移
-php h2 migrate:status     # 查看迁移状态
-```
 
 ---
 
@@ -347,6 +373,104 @@ public function show(int $id): void {
 }
 ```
 
+---
+
+## 事件
+
+事件在当前请求内有效（发布/订阅），适合解耦同步流程：
+
+```php
+// 注册监听（通常在 before() 或 index.php 里）
+$this->on('user.registered', function(array $user) {
+    // 发送欢迎邮件、写日志等
+});
+
+// 触发（控制器里）
+$this->fire('user.registered', ['id' => $id, 'email' => $email]);
+
+// 直接使用静态类
+\Lib\Event::on('order.paid', fn($o) => /* ... */);
+\Lib\Event::fire('order.paid', $order);
+```
+
+---
+
+## 队列
+
+队列任务异步执行，跨请求持久化。Job 文件放在 `app/jobs/`：
+
+```php
+// app/jobs/SendWelcomeEmail.php
+class SendWelcomeEmail {
+    public function handle(array $payload): void {
+        // 发送邮件...
+        mail($payload['email'], '欢迎注册', '感谢您注册！');
+    }
+}
+```
+
+```php
+// 控制器里入队（立即返回，任务后台执行）
+$this->queue('SendWelcomeEmail', ['user_id' => $id, 'email' => $email]);
+```
+
+```bash
+# 启动 Worker（持续运行）
+php h2 queue:work
+
+# Cron 模式（每分钟执行一次）
+* * * * * php /path/to/h2 queue:work --once
+```
+
+**`config/config.php` 配置：**
+
+```php
+'queue' => [
+    'driver'       => 'database',  // database（默认，零依赖）| redis（高性能）
+    'host'         => '127.0.0.1',
+    'port'         => 6379,
+    'password'     => '',
+    'key'          => 'h2_jobs',
+    'max_attempts' => 3,           // 失败后最多重试次数
+],
+```
+
+> **database 驱动**：任务存入 `_jobs` 表（自动创建），使用 `FOR UPDATE` 防并发冲突，支持失败重试。  
+> **redis 驱动**：`BRPOP` 实时阻塞，近乎实时响应，适合高频场景。
+
+---
+
+## 测试
+
+框架内置 PHPUnit 测试套件，运行时零 Composer 依赖，测试工具作为 dev 依赖单独安装：
+
+```bash
+# 首次安装 PHPUnit（仅开发用）
+composer install
+
+# 运行测试
+php h2 test
+php h2 test --filter testEmail        # 过滤
+php h2 test --testsuite Unit          # 指定套件
+```
+
+**示例：** `tests/Unit/ValidatorTest.php`
+
+```php
+use PHPUnit\Framework\TestCase;
+use Lib\Validator;
+
+class ValidatorTest extends TestCase {
+    public function testEmailFails(): void {
+        $v = new Validator(['email' => 'not'], ['email' => 'email']);
+        $this->assertTrue($v->fails());
+    }
+}
+```
+
+> `DBTest.php` 使用 SQLite 内存库，无需配置 MySQL 即可运行，覆盖全部链式查询 API。
+
+---
 
 ## 查询缓存
 
@@ -579,9 +703,14 @@ public function submit(): void {
 
 ## 环境要求
 
-- PHP 7.2+
-- Apache（mod_rewrite）或 Nginx
-- PDO + PDO_MySQL 扩展（使用数据库时）
+| 项目 | 要求 |
+|------|------|
+| PHP | 7.2+（运行时） / 7.4+（PhpUnit 需要） |
+| Web 服务器 | Apache（mod_rewrite）或 Nginx |
+| PHP 扩展（运行） | PDO + PDO_MySQL（使用数据库时） |
+| PHP 扩展（可选） | Redis 扩展（queue/cache redis 驱动）/ Memcache 扩展 |
+| PHP 扩展（测试） | pdo_sqlite（DBTest 使用 SQLite 内存库） |
+| Composer | 仅开发时需要（安装 PHPUnit）|
 
 ---
 
