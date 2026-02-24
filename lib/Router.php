@@ -20,26 +20,12 @@ class Router
 
         $defaults = $config['default'];
 
-        // 分离字符串段（a/b/c）与数字段（d1/d2/...）
-        $strSegs = [];
-        $numSegs = [];
-        $dMode   = false;  // 一旦遇到数字段，后续都视为数字
-
-        foreach ($segments as $seg) {
-            if (!$dMode && !ctype_digit($seg)) {
-                $strSegs[] = $seg;
-            } else {
-                $dMode = true;
-                if (ctype_digit($seg)) {
-                    $numSegs[] = (int)$seg;
-                }
-            }
-        }
-
-        $a = $strSegs[0] ?? $defaults['a'];  // 目录
-        $b = $strSegs[1] ?? $defaults['b'];  // 文件
-        $c = $strSegs[2] ?? $defaults['c'];  // 方法
-        $d = $numSegs;                        // 数字参数数组
+        // 固定位置切分：前三段 = a/b/c，其余全部作为 d 参数
+        // d 参数支持字符串（slug/hash）和整数，互不影响路由识别
+        $a = $segments[0] ?? $defaults['a'];   // 目录
+        $b = $segments[1] ?? $defaults['b'];   // 文件
+        $c = $segments[2] ?? $defaults['c'];   // 方法
+        $d = array_slice($segments, 3);        // 位置参数（字符串或数字）
 
         // 安全校验：只允许字母、数字、下划线（防止路径穿越）
         $safePattern = '/^[a-zA-Z0-9_]+$/';
@@ -89,7 +75,14 @@ class Router
 
         foreach ($params as $param) {
             if (isset($d[$dIndex])) {
-                $callArgs[] = $d[$dIndex++];
+                $raw  = $d[$dIndex++];
+                // 按形参类型提示自动转型
+                $type = $param->getType();
+                $typeName = $type ? $type->getName() : '';
+                if ($typeName === 'int')   $raw = (int)$raw;
+                elseif ($typeName === 'float') $raw = (float)$raw;
+                // string / 无类型 → 原样传入
+                $callArgs[] = $raw;
             } elseif ($param->isDefaultValueAvailable()) {
                 $callArgs[] = $param->getDefaultValue();
             } else {
