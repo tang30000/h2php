@@ -687,6 +687,57 @@ class main extends \Lib\Core
 
 ---
 
+## 中间件（Middleware）
+
+中间件是在控制器**之前**执行的可复用处理层，采用洋葱模型：
+
+```
+请求 → Cors → AuthCheck → [before() → action → after()] → AuthCheck → Cors → 响应
+```
+
+**中间件类**放在 `app/middleware/`，实现 `handle(callable $next)` 方法：
+
+```php
+// app/middleware/Cors.php
+class Cors
+{
+    public function handle(callable $next): void
+    {
+        header('Access-Control-Allow-Origin: *');
+
+        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            http_response_code(204);
+            return;  // 不调用 $next() = 拦截请求
+        }
+
+        $next();  // 继续后续中间件 → 控制器
+    }
+}
+```
+
+**全局注册**（所有请求都经过）：
+
+```php
+// config/config.php
+'middleware' => [
+    'Cors',       // 跨域支持
+    'AuthCheck',  // 全局登录检查
+],
+```
+
+**控制器级注册**（仅指定控制器）：
+
+```php
+class main extends \Lib\Core
+{
+    protected array $middleware = ['AuthCheck'];  // 仅当前控制器经过
+}
+```
+
+> 不配置任何中间件时（空数组或不设置），框架完全跳过管道逻辑，零性能开销。
+
+---
+
 ## abort / success / fail
 
 ```php

@@ -101,12 +101,45 @@ class Router
         // 将当前方法名写入控制器（供 skipBefore 使用）
         $controller->_method = $c;
 
-        // 执行 before → action → after
-        if ($controller->shouldRunBefore()) {
-            $controller->before();
+        // ─── 构建中间件管道（洋葱模型）──────────────────────────
+        // 最内层：before() → action → after()
+        $core = function() use ($controller, $c, $callArgs) {
+            if ($controller->shouldRunBefore()) {
+                $controller->before();
+            }
+            $controller->$c(...$callArgs);
+            $controller->after();
+        };
+
+        // 收集中间件：全局（config） + 控制器级
+        $middlewares = $config['middleware'] ?? [];
+        $ctrlMiddlewares = $controller->getMiddleware();
+        $middlewares = array_merge($middlewares, $ctrlMiddlewares);
+
+        // 无中间件时直接执行核心逻辑（零开销）
+        if (empty($middlewares)) {
+            $core();
+            return;
         }
-        $controller->$c(...$callArgs);
-        $controller->after();
+
+        // 从内向外包裹：最后注册的中间件最靠近核心
+        $pipeline = $core;
+        foreach (array_reverse($middlewares) as $mw) {
+            $next = $pipeline;
+            $pipeline = function() use ($mw, $next, $config) {
+                $file = ($config['path']['app'] ?? APP) . "/middleware/{$mw}.php";
+                if (!is_file($file)) {
+                    throw new \RuntimeException("中间件文件不存在：app/middleware/{$mw}.php");
+                }
+                require_once $file;
+                if (!class_exists($mw)) {
+                    throw new \RuntimeException("中间件类不存在：{$mw}");
+                }
+                (new $mw())->handle($next);
+            };
+        }
+
+        $pipeline();
     }
 
     /**

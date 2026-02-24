@@ -34,6 +34,25 @@ class Core
      */
     protected array $skipBefore = [];
 
+    /**
+     * 控制器级中间件列表
+     *
+     * 在子类中设置，仅当前控制器的请求经过这些中间件。
+     * 中间件文件放在 app/middleware/ 目录，类名与文件名一致。
+     *
+     * 示例：仅此控制器需要鉴权中间件
+     *   protected array $middleware = ['AuthCheck'];
+     *
+     * @var string[]
+     */
+    protected array $middleware = [];
+
+    /** 获取控制器级中间件列表（供 Router 调用） */
+    public function getMiddleware(): array
+    {
+        return $this->middleware;
+    }
+
     // -------------------------------------------------------------------------
     // 模板变量传递
     // -------------------------------------------------------------------------

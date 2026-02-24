@@ -50,5 +50,12 @@ return [
         'max_attempts' => 3,           // 失败后最多重试次数
     ],
 
+    // 全局中间件（按顺序执行，文件放在 app/middleware/）
+    // 无需中间件时留空数组或删除此项，对性能零影响
+    'middleware' => [
+        // 'Cors',       // 跨域支持
+        // 'AuthCheck',  // 全局登录检查
+    ],
+
 ];
 
