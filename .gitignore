@@ -12,3 +12,7 @@ Thumbs.db
 
 # PHP 日志
 *.log
+
+# 缓存文件（保留目录本身）
+/cache/*.cache
+/cache/*.php
