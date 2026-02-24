@@ -18,6 +18,9 @@ class DB
     /** @var int 缓存时间（秒），0 表示不缓存 */
     private int $cacheTime = 0;
 
+    /** @var bool 是否强制刷新缓存 */
+    private bool $cacheForce = false;
+
     /** @var array|null 缓存驱动配置 */
     private ?array $cacheConfig = null;
 
@@ -48,19 +51,24 @@ class DB
         $clone->order     = '';
         $clone->limit     = '';
         $clone->fields    = '*';
-        $clone->cacheTime = 0;
+        $clone->cacheTime  = 0;
+        $clone->cacheForce = false;
         return $clone;
     }
 
     /**
      * 启用查询缓存
      *
-     * @param int $ttl 缓存秒数，0 等同于不缓存
-     * 用法：->cache(300)->fetchAll()  → 结果缓存 300 秒
+     * @param int  $ttl   缓存秒数，0 等同于不缓存
+     * @param bool $force true = 强制刷新：忽略旧缓存，重新查库并覆盖
+     *
+     * 用法：->cache(300)        // 有缓存就用，没有则查库后缓存
+     *       ->cache(300, true)  // 强制刷新，常用于写操作后主动更新热点数据
      */
-    public function cache(int $ttl = 3600): self
+    public function cache(int $ttl = 3600, bool $force = false): self
     {
-        $this->cacheTime = $ttl;
+        $this->cacheTime  = $ttl;
+        $this->cacheForce = $force;
         return $this;
     }
 
@@ -115,12 +123,15 @@ class DB
         if ($this->cacheTime > 0 && $this->cacheConfig) {
             $key   = md5($sql . serialize($this->params));
             $cache = Cache::instance($this->cacheConfig);
-            $hit   = $cache->get($key);
-            if ($hit !== null) return $hit;
+            // force=false 时先读缓存，命中直接返回
+            if (!$this->cacheForce) {
+                $hit = $cache->get($key);
+                if ($hit !== null) return $hit;
+            }
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($this->params);
             $data = $stmt->fetchAll();
-            $cache->set($key, $data, $this->cacheTime);
+            $cache->set($key, $data, $this->cacheTime);  // 写入（覆盖）缓存
             return $data;
         }
 
@@ -140,8 +151,10 @@ class DB
         if ($this->cacheTime > 0 && $this->cacheConfig) {
             $key   = md5($sql . serialize($this->params));
             $cache = Cache::instance($this->cacheConfig);
-            $hit   = $cache->get($key);
-            if ($hit !== null) return $hit;
+            if (!$this->cacheForce) {
+                $hit = $cache->get($key);
+                if ($hit !== null) return $hit;
+            }
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($this->params);
             $data = $stmt->fetch();
