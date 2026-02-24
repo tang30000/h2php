@@ -6,7 +6,7 @@
 >
 > 23 个内置组件 · 30 课教程 · 支持 MySQL / PostgreSQL / SQLite
 
-[English Documentation](README.en.md)
+[English Documentation](README.en.md) Demo：https://github.com/tang30000/h2cms
 
 H2PHP 是一个极简的单入口 PHP 框架。路由即目录结构，模板与逻辑分离，没有复杂配置，没有 Composer 依赖，保留 PHP 原生开发的舒适度。
 
