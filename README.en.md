@@ -1,6 +1,8 @@
 # H2PHP
 
 > A lightweight, native, non-intrusive PHP MVC framework
+>
+> **The most lightweight and efficient MVC framework ever.**
 
 H2PHP is a minimalist single-entry PHP framework. Routes map directly to the directory structure, templates are separated from logic, zero complex configuration, zero Composer dependencies — retaining the natural comfort of plain PHP development.
 

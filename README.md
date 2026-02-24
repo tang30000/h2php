@@ -1,6 +1,8 @@
 # H2PHP
 
 > 轻量、原生、无侵入的 PHP MVC 框架
+>
+> **史上最轻便高效的 MVC 框架。**
 
 [English Documentation](README.en.md)
 
