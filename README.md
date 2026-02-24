@@ -1,8 +1,8 @@
-﻿# H2PHP
+﻿# H2PHP — Lightweight PHP MVC Framework
 
-> 轻量、原生、无侵入的 PHP MVC 框架
+> **极简 · 零依赖 · 目录即路由 · 性能优先**
 >
-> **史上最轻便高效的 MVC 框架。**
+> 用 Laravel 0.5% 的代码量，覆盖 96% 的主流框架功能。
 
 [English Documentation](README.en.md)
 

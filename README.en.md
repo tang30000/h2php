@@ -1,8 +1,8 @@
-# H2PHP
+# H2PHP — Lightweight PHP MVC Framework
 
-> A lightweight, native, non-intrusive PHP MVC framework
+> **Minimalist · Zero-dependency · Directory-based routing · Performance-first**
 >
-> **The most lightweight and efficient MVC framework ever.**
+> Covers 96% of mainstream framework features with only 0.5% of Laravel's codebase.
 
 [中文文档](README.md)
 
