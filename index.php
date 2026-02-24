@@ -5,37 +5,8 @@
  */
 
 // ── 0. 静态文件直通（PHP 内置服务器）───────────────────────────
-// 当使用 php -S 开发服务器时，所有请求都经过此文件。
-// 静态资源（css/js/图片/字体）应直接返回，不走路由。
-$_requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$_staticFile = __DIR__ . $_requestUri;
-if ($_requestUri !== '/' && is_file($_staticFile)) {
-    $_ext = strtolower(pathinfo($_staticFile, PATHINFO_EXTENSION));
-    $_mimeTypes = [
-        'css'  => 'text/css',
-        'js'   => 'application/javascript',
-        'json' => 'application/json',
-        'png'  => 'image/png',
-        'jpg'  => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'gif'  => 'image/gif',
-        'svg'  => 'image/svg+xml',
-        'webp' => 'image/webp',
-        'ico'  => 'image/x-icon',
-        'woff' => 'font/woff',
-        'woff2'=> 'font/woff2',
-        'ttf'  => 'font/ttf',
-        'eot'  => 'application/vnd.ms-fontobject',
-        'mp4'  => 'video/mp4',
-        'pdf'  => 'application/pdf',
-        'zip'  => 'application/zip',
-    ];
-    if (isset($_mimeTypes[$_ext])) {
-        header('Content-Type: ' . $_mimeTypes[$_ext]);
-        readfile($_staticFile);
-        exit;
-    }
-}
+require __DIR__ . '/lib/StaticFile.php';
+\Lib\StaticFile::serve();
 
 define('ROOT',   __DIR__);
 define('LIB',    ROOT . '/lib');
