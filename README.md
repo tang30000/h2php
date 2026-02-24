@@ -274,12 +274,15 @@ public function update(int $id, array $data): void {
 
 ```php
 'cache' => [
-    'driver' => 'file',   // file | redis | memcache | memcached
-    'host'   => '127.0.0.1',
-    'port'   => 6379,
-    'prefix' => 'h2_',
+    'driver'   => 'file',          // file | redis | memcache | memcached
+    'host'     => '127.0.0.1',
+    'port'     => 6379,            // Redis 默认 6379，Memcache 默认 11211
+    'prefix'   => 'h2_',           // key 前缀，防止多项目 key 冲突
+    'password' => '',              // Redis 密码（无密码留空或删除此行）
+    // 'dir'   => '/tmp/h2cache',  // file 驱动缓存目录（默认 ROOT/cache）
 ],
 ```
+
 
 ---
 
