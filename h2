@@ -20,9 +20,13 @@ $arg     = $argv[2] ?? '';
 switch ($command) {
     case 'make:controller': makeController($arg); break;
     case 'make:view':       makeView($arg);       break;
+    case 'make:job':        makeJob($arg);        break;
     case 'migrate':                 migrate();            break;
     case 'migrate:rollback':        migrateRollback();    break;
     case 'migrate:status':          migrateStatus();      break;
+    case 'queue:work':              queueWork($argv);     break;
+    case 'queue:status':            queueStatus();        break;
+    case 'queue:clear':             queueClear();         break;
     case 'test':                    runTests($argv);      break;
     default:                        showHelp();           break;
 }
@@ -214,6 +218,76 @@ function migrateStatus(): void
     }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// make:job
+// ──────────────────────────────────────────────────────────────────────────────
+
+function makeJob(string $name): void
+{
+    if (!$name) {
+        fail("用法: php h2 make:job <类名>  例：php h2 make:job SendWelcomeEmail");
+    }
+    $path = ROOT . "/app/jobs/{$name}.php";
+    if (file_exists($path)) {
+        fail("文件已存在：app/jobs/{$name}.php");
+    }
+    @mkdir(dirname($path), 0755, true);
+    $content = <<<PHP
+<?php
+class {$name}
+{
+    public function handle(array \$payload): void
+    {
+        // TODO: 实现任务逻辑
+    }
+}
+PHP;
+    file_put_contents($path, $content);
+    ok("已创建 Job：app/jobs/{$name}.php");
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// queue:work
+// ──────────────────────────────────────────────────────────────────────────────
+
+function queueWork(array $argv): void
+{
+    $cfg    = require ROOT . '/config/config.php';
+    $once   = in_array('--once', $argv);
+    $sleep  = 3; // 无任务时等待秒数
+
+    info($once ? "处理一个任务后退出..." : "Queue Worker 启动，Ctrl+C 退出");
+
+    while (true) {
+        try {
+            $processed = \Lib\Queue::processOne($cfg);
+        } catch (\Throwable $e) {
+            fail("Worker 错误：" . $e->getMessage());
+        }
+
+        if ($once) break;
+        if (!$processed) sleep($sleep);
+    }
+}
+
+function queueStatus(): void
+{
+    $cfg  = require ROOT . '/config/config.php';
+    $stat = \Lib\Queue::status($cfg);
+    printf("%-15s %s\n", "状态", "数量");
+    echo str_repeat('-', 25) . "\n";
+    foreach ($stat as $s => $n) {
+        printf("%-15s %d\n", $s, $n);
+    }
+}
+
+function queueClear(): void
+{
+    $cfg = require ROOT . '/config/config.php';
+    $n   = \Lib\Queue::clear($cfg);
+    ok("已清除 {$n} 条已完成/失败任务");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 辅助
 // ─────────────────────────────────────────────────────────────────────────────
@@ -233,24 +307,20 @@ function runTests(array $argv): void
 function showHelp(): void
 {
     echo <<<HELP
-H2PHP CLI 工具
+H2PHP CLI \u5de5\u5177
 
-用法：
-  php h2 make:controller <目录/文件名>   创建控制器
-  php h2 make:view <模块/功能/方法>      创建视图模板
-  php h2 migrate                         运行未执行的迁移
-  php h2 migrate:rollback                回滚上一批迁移
-  php h2 migrate:status                  显示迁移状态
-  php h2 test [phpunit 参数]             运行测试
-
-示例：
-  php h2 make:controller user/login
-  php h2 make:view user/login/index
-  php h2 migrate
-  php h2 migrate:status
-  php h2 test
-  php h2 test --filter testEmail
-  php h2 test --testsuite Unit
+\u7528\u6cd5\uff1a
+  php h2 make:controller <\u76ee\u5f55/\u6587\u4ef6\u540d>   \u521b\u5efa\u63a7\u5236\u5668
+  php h2 make:view <\u6a21\u5757/\u529f\u80fd/\u65b9\u6cd5>      \u521b\u5efa\u89c6\u56fe\u6a21\u677f
+  php h2 make:job  <\u7c7b\u540d>              \u521b\u5efa Job \u6a21\u677f
+  php h2 migrate                         \u8fd0\u884c\u672a\u6267\u884c\u7684\u8fc1\u79fb
+  php h2 migrate:rollback                \u56de\u6eda\u4e0a\u4e00\u6279\u8fc1\u79fb
+  php h2 migrate:status                  \u663e\u793a\u8fc1\u79fb\u72b6\u6001
+  php h2 queue:work                      \u542f\u52a8\u961f\u5217 Worker\uff08\u6301\u7eed\u8fd0\u884c\uff09
+  php h2 queue:work --once               \u5904\u7406\u4e00\u4e2a\u4efb\u52a1\u5c31\u9000\u51fa\uff08\u9002\u5408 cron\uff09
+  php h2 queue:status                    \u67e5\u770b\u961f\u5217\u72b6\u6001
+  php h2 queue:clear                     \u6e05\u9664\u5df2\u5b8c\u6210/\u5931\u8d25\u4efb\u52a1
+  php h2 test [phpunit \u53c2\u6570]             \u8fd0\u884c\u6d4b\u8bd5
 
 HELP;
 }

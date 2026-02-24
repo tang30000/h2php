@@ -305,8 +305,51 @@ class Core
     }
 
     // -------------------------------------------------------------------------
+    // 事件
+    // -------------------------------------------------------------------------
+
+    /**
+     * 注册事件监听器（当前请求内有效）
+     *
+     * 用法：$this->on('user.registered', function($user) { ... });
+     */
+    public function on(string $event, callable $listener): void
+    {
+        \Lib\Event::on($event, $listener);
+    }
+
+    /**
+     * 触发事件
+     *
+     * 用法：$this->fire('user.registered', $user);
+     */
+    public function fire(string $event, $payload = null): void
+    {
+        \Lib\Event::fire($event, $payload);
+    }
+
+    // -------------------------------------------------------------------------
+    // 队列
+    // -------------------------------------------------------------------------
+
+    /**
+     * 将任务推入队列（异步执行）
+     *
+     * Job 文件放在 app/jobs/ 目录，类名与文件名一致，实现 handle(array $payload) 方法。
+     *
+     * 用法：$this->queue('SendWelcomeEmail', ['user_id' => 5, 'email' => 'a@b.com']);
+     *
+     * Worker 启动：php h2 queue:work
+     */
+    public function queue(string $jobName, array $payload = []): void
+    {
+        \Lib\Queue::push($jobName, $payload, $this->config);
+    }
+
+    // -------------------------------------------------------------------------
     // CSRF 保护
     // -------------------------------------------------------------------------
+
 
 
     /**
