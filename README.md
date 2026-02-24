@@ -1,4 +1,4 @@
-# H2PHP
+﻿# H2PHP
 
 > 轻量、原生、无侵入的 PHP MVC 框架
 >
@@ -42,6 +42,11 @@ h2php/
 │   └── {模块}/{功能}.php
 │
 ├── views/                 # HTML 模板（支持两级，见下方说明）
+│   ├── _layouts/            # 布局文件
+│   ├── _partials/           # 局部模板
+│   ├── _errors/             # 自定义错误页
+│   │   ├── 404.html
+│   │   └── 500.html
 │   ├── {模块}/{功能}/{方法}.html   # 精确到方法（优先）
 │   └── {模块}/{功能}.html         # 控制器级（fallback）
 │
@@ -149,12 +154,86 @@ class main extends \Lib\Core
 | `$this->render($tpl)` | 渲染模板（默认同名模板） |
 | `$this->json($data)` | 输出 JSON（API 接口用） |
 | `$this->redirect($url)` | 跳转 |
+| `$this->layout($name)` | 设置布局文件 |
+| `$this->partial($name)` | 引入局部模板 |
+| `$this->flash($type, $msg)` | 设置 Flash 消息（跨请求一次性） |
+| `$this->getFlash($type)` | 读取并清除指定 Flash |
+| `$this->getAllFlash()` | 读取并清除所有 Flash |
+| `$this->paginate($total,$page,$size,$url)` | 生成分页数据数组 |
+| `$this->csrfField()` | 返回 CSRF 隐藏字段 HTML |
+| `$this->csrfVerify()` | 校验 CSRF token |
+
 | `$this->db` | DB 实例（懒加载） |
 | `$this->request` | Request 实例（懒加载） |
 | `before()` | 钩子：方法执行前（可在子类覆盖，用于鉴权） |
 | `after()` | 钩子：方法执行后 |
 
 ---
+
+## Flash 消息
+
+```php
+// 操作后写入 Flash 再跳转
+public function delete(int $id): void {
+    $this->db->table('users')->where('id=?', [$id])->delete();
+    $this->flash('success', '删除成功');
+    $this->redirect('/user/list');
+}
+
+// 接收页把 Flash 传给模板
+public function index(): void {
+    $this->set('flash', $this->getAllFlash());
+    $this->render();
+}
+```
+
+```html
+<?php if (!empty($flash['success'])): ?>
+<div class="alert-success"><?= htmlspecialchars($flash['success']) ?></div>
+<?php endif; ?>
+```
+
+---
+
+## 分页辅助
+
+```php
+public function list(int $page = 1, int $size = 20): void {
+    $total = $this->db->table('articles')->count();
+    $p     = $this->paginate($total, $page, $size, '/article/list/show');
+
+    $articles = $this->db->table('articles')
+        ->order('id DESC')
+        ->limit($p['limit'], $p['offset'])
+        ->fetchAll();
+
+    $this->setMulti(['articles' => $articles, 'p' => $p]);
+    $this->render();
+}
+```
+
+```html
+<?php if ($p['hasPrev']): ?><a href="<?= $p['prevUrl'] ?>">上一页</a><?php endif; ?>
+<?php foreach ($p['links'] as $link): ?>
+<a href="<?= $link['url'] ?>" <?= $link['active'] ? 'class="active"' : '' ?>><?= $link['page'] ?></a>
+<?php endforeach; ?>
+<?php if ($p['hasNext']): ?><a href="<?= $p['nextUrl'] ?>">下一页</a><?php endif; ?>
+```
+
+---
+
+## 自定义错误页
+
+在 `views/_errors/` 下创建错误页模板，框架自动使用：
+
+```
+views/_errors/
+├── 404.html   ← 控制器/方法不存在
+└── 500.html   ← 服务器错误
+```
+
+模板内可用三个变量：`$code`（状态码）、`$title`（标题）、`$message`（详细信息）。不存在时自动回退内置样式。
+
 
 ## DB 链式查询
 
