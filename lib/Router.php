@@ -28,7 +28,12 @@ class Router
         if ($uri === '') {
             // 从 REQUEST_URI 提取路径（/user/login 风格）
             $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-            if ($path !== '/' && $path !== '') {
+            // 子目录部署时，剥离 base_path 前缀
+            $basePath = $config['base_path'] ?? '';
+            if ($basePath !== '' && strpos($path, $basePath) === 0) {
+                $path = substr($path, strlen($basePath));
+            }
+            if ($path !== '/' && $path !== '' && $path !== false) {
                 $uri = ltrim($path, '/');
             }
         }

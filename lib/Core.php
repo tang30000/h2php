@@ -124,6 +124,18 @@ class Core
     // -------------------------------------------------------------------------
 
     /**
+     * 生成带 base_path 前缀的 URL
+     *
+     * @param string $path  路径（如 '/user/login'）
+     * @return string       完整路径（如 '/h2php/user/login'）
+     */
+    public function url(string $path = '/'): string
+    {
+        $base = rtrim($this->config['base_path'] ?? '', '/');
+        return $base . '/' . ltrim($path, '/');
+    }
+
+    /**
      * 渲染模板
      *
      * 自动查找顺序（$tpl 为 null 时）：
@@ -155,6 +167,11 @@ class Core
             http_response_code(500);
             echo "模板文件不存在：{$viewFile}";
             exit;
+        }
+
+        // 自动注入 basePath 变量，视图中用 <?= $basePath ?>/user/login
+        if (!isset($this->vars['basePath'])) {
+            $this->vars['basePath'] = rtrim($this->config['base_path'] ?? '', '/');
         }
 
         extract($this->vars, EXTR_SKIP);
@@ -195,11 +212,18 @@ class Core
     /**
      * 跳转到指定 URL
      *
-     * @param string $url  目标 URL（支持框架内路径 如 '/user/login'）
+     * 框架内路径（以 / 开头）会自动拼接 base_path 前缀。
+     * 外部 URL（以 http 开头）直接跳转，不拼前缀。
+     *
+     * @param string $url  目标 URL（如 '/user/login' 或 'https://...'）
      * @param int    $code HTTP 状态码，默认 302
      */
     public function redirect(string $url, int $code = 302): void
     {
+        // 框架内路径自动拼接 base_path
+        if (strpos($url, '/') === 0 && strpos($url, '//') !== 0) {
+            $url = $this->url($url);
+        }
         http_response_code($code);
         header("Location: {$url}");
         exit;
