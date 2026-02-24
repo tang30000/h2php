@@ -97,7 +97,7 @@ if (!class_exists('main')) {
 
 /** @var \Lib\Core $controller */
 $controller          = new main();
-$controller->_path   = "{$a}/{$b}";  // 供 render() 自动推断模板路径
+$controller->_path   = "{$a}/{$b}/{$c}";  // 供 render() 自动推断模板路径
 
 // 注入配置（通过反射写入 protected $config）
 $ref = new ReflectionProperty(\Lib\Core::class, 'config');

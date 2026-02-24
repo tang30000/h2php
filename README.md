@@ -36,8 +36,8 @@ h2php/
 ├── app/                   # 你的控制器代码
 │   └── {模块}/{功能}.php
 │
-├── views/                 # HTML 模板（与 app/ 镜像）
-│   └── {模块}/{功能}.html
+├── views/                 # HTML 模板（与 app/ 镜像，精确到方法）
+│   └── {模块}/{功能}/{方法}.html
 │
 └── static/                # 静态资源（CSS / JS / 图片）
 ```
@@ -109,7 +109,7 @@ class main extends \Lib\Core
 }
 ```
 
-**创建模板** `views/goods/detail.html`：
+**创建模板** `views/goods/detail/view.html`：
 
 ```html
 <!DOCTYPE html>
