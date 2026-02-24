@@ -288,6 +288,44 @@ class main extends \Lib\Core
 
 ---
 
+## 表单验证
+
+```php
+$v = $this->validate($_POST, [
+    'username' => 'required|min_len:3|max_len:20',
+    'email'    => 'required|email|unique:users,email',
+    'password' => 'required|min_len:6|confirmed',
+    'age'      => 'required|integer|min:1|max:150',
+], [
+    'username' => '用户名',
+    'email'    => '邮箱',
+    'password' => '密码',
+    'age'      => '年龄',
+]);
+
+if ($v->fails()) {
+    $this->flash('error', $v->firstError());
+    $this->redirect('/user/register');
+}
+```
+
+| 规则 | 含义 |
+|------|------|
+| `required` | 不能为空 |
+| `email` | 邮箱格式 |
+| `integer` | 必须为整数 |
+| `numeric` | 必须为数字 |
+| `min:n` | 数值 ≥ n |
+| `max:n` | 数值 ≤ n |
+| `min_len:n` | 字符串长度 ≥ n |
+| `max_len:n` | 字符串长度 ≤ n |
+| `in:a,b,c` | 值必须在列表中 |
+| `regex:/pattern/` | 正则匹配 |
+| `url` | URL 格式 |
+| `confirmed` | 与 `{field}_confirmation` 一致（密码确认） |
+| `unique:table,column` | 数据库唯一性检查 |
+
+
 ## 布局与局部模板
 
 **目录约定：**

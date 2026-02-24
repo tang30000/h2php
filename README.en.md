@@ -209,6 +209,44 @@ class main extends \Lib\Core
 
 ---
 
+## Form Validation
+
+```php
+$v = $this->validate($_POST, [
+    'username' => 'required|min_len:3|max_len:20',
+    'email'    => 'required|email|unique:users,email',
+    'password' => 'required|min_len:6|confirmed',
+    'age'      => 'required|integer|min:1|max:150',
+], [
+    'username' => 'Username',
+    'email'    => 'Email',
+    'password' => 'Password',
+    'age'      => 'Age',
+]);
+
+if ($v->fails()) {
+    $this->flash('error', $v->firstError());
+    $this->redirect('/user/register');
+}
+```
+
+| Rule | Meaning |
+|------|---------|
+| `required` | Must not be empty |
+| `email` | Valid email format |
+| `integer` | Must be an integer |
+| `numeric` | Must be numeric |
+| `min:n` | Value ≥ n |
+| `max:n` | Value ≤ n |
+| `min_len:n` | String length ≥ n |
+| `max_len:n` | String length ≤ n |
+| `in:a,b,c` | Value must be in the list |
+| `regex:/pattern/` | Custom regex match |
+| `url` | Valid URL format |
+| `confirmed` | Must match `{field}_confirmation` (e.g. password confirm) |
+| `unique:table,column` | Must be unique in database |
+
+
 ## Layouts & Partials
 
 **Directory convention:**

@@ -275,8 +275,39 @@ class Core
     }
 
     // -------------------------------------------------------------------------
+    // 表单验证
+    // -------------------------------------------------------------------------
+
+    /**
+     * 创建验证器
+     *
+     * @param array $data    待验证数据（通常是 $_POST）
+     * @param array $rules   [字段 => 'rule1|rule2:param|...']
+     * @param array $labels  [字段 => '显示名称']（可选，用于错误提示）
+     *
+     * @return \Lib\Validator
+     *
+     * 示例：
+     *   $v = $this->validate($_POST, [
+     *       'name'  => 'required|max_len:50',
+     *       'email' => 'required|email|unique:users,email',
+     *       'age'   => 'required|integer|min:1|max:150',
+     *   ], ['name' => '姓名', 'email' => '邮箱', 'age' => '年龄']);
+     *
+     *   if ($v->fails()) {
+     *       $this->flash('error', $v->firstError());
+     *       $this->redirect('/user/register');
+     *   }
+     */
+    public function validate(array $data, array $rules, array $labels = []): \Lib\Validator
+    {
+        return new \Lib\Validator($data, $rules, $labels, $this->dbInstance);
+    }
+
+    // -------------------------------------------------------------------------
     // CSRF 保护
     // -------------------------------------------------------------------------
+
 
     /**
      * 获取（或生成）当前 Session 的 CSRF Token
