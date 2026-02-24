@@ -27,12 +27,20 @@ class Router
         $c = $segments[2] ?? $defaults['c'];   // 方法
         $d = array_slice($segments, 3);        // 位置参数（字符串或数字）
 
-        // 安全校验：只允许字母、数字、下划线（防止路径穿越）
+        // a/b/c 安全校验：只允许字母、数字、下划线（阐止路径穿越）
         $safePattern = '/^[a-zA-Z0-9_]+$/';
         if (!preg_match($safePattern, $a) ||
             !preg_match($safePattern, $b) ||
             !preg_match($safePattern, $c)) {
             self::abort(400, '非法路由参数');
+        }
+
+        // d 参数安全校验：允许字母、数字、下划线、连字符和小数点（支持 slug/hash）
+        $dPattern = '/^[a-zA-Z0-9_\-.]+$/';
+        foreach ($d as $seg) {
+            if (!preg_match($dPattern, $seg)) {
+                self::abort(400, "非法位置参数：{$seg}");
+            }
         }
 
         // ─── 加载控制器文件 ──────────────────────────────────────
@@ -90,8 +98,13 @@ class Router
             }
         }
 
-        // ─── 执行 before → action → after ───────────────────────
-        $controller->before();
+        // 将当前方法名写入控制器（供 skipBefore 使用）
+        $controller->_method = $c;
+
+        // 执行 before → action → after
+        if ($controller->shouldRunBefore()) {
+            $controller->before();
+        }
         $controller->$c(...$callArgs);
         $controller->after();
     }

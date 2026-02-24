@@ -23,3 +23,4 @@ Thumbs.db
 # PHPUnit 覆盖率报告
 /.phpunit.result.cache
 /coverage/
+/config/config.local.php

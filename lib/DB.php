@@ -24,6 +24,9 @@ class DB
     /** @var array|null 缓存驱动配置 */
     private ?array $cacheConfig = null;
 
+    /** @var bool 是否自动维护时间戳（created_at / updated_at） */
+    private bool $timestamps = false;
+
     public function __construct(array $config)
     {
         $this->pdo = new \PDO(
@@ -80,6 +83,22 @@ class DB
     {
         $this->fields = $fields;
         return $this;
+    }
+
+    /**
+     * 开启自动时间戳
+     *
+     * 开启后：
+     *   - insert() 自动填充 created_at 和 updated_at（如未传入）
+     *   - update() 自动写入 updated_at（如未传入）
+     *
+     * 用法：$this->db->table('posts')->timestamps()->insert([...]);
+     */
+    public function timestamps(bool $auto = true): self
+    {
+        $clone = clone $this;
+        $clone->timestamps = $auto;
+        return $clone;
     }
 
     /**
@@ -196,6 +215,11 @@ class DB
      */
     public function insert(array $data)
     {
+        if ($this->timestamps) {
+            $now = date('Y-m-d H:i:s');
+            $data['created_at'] = $data['created_at'] ?? $now;
+            $data['updated_at'] = $data['updated_at'] ?? $now;
+        }
         $cols   = implode('`, `', array_keys($data));
         $marks  = implode(', ', array_fill(0, count($data), '?'));
         $sql    = "INSERT INTO `{$this->table}` (`{$cols}`) VALUES ({$marks})";
@@ -209,6 +233,9 @@ class DB
      */
     public function update(array $data): int
     {
+        if ($this->timestamps) {
+            $data['updated_at'] = $data['updated_at'] ?? date('Y-m-d H:i:s');
+        }
         $sets   = implode(', ', array_map(fn($k) => "`{$k}` = ?", array_keys($data)));
         $vals   = array_merge(array_values($data), $this->params);
         $sql    = "UPDATE `{$this->table}` SET {$sets}"

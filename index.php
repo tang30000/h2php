@@ -32,6 +32,14 @@ foreach (glob(LIB . '/*.php') as $file) {
 // ── 4. 读取配置 ──────────────────────────────────────────────────
 $config = require CONFIG . '/config.php';
 
+// 本地覆盖配置（config.local.php 不提交到 Git，适合开发环境）
+// 可覆盖 db / debug / cache 等任意配置项
+$localCfg = CONFIG . '/config.local.php';
+if (is_file($localCfg)) {
+    $local  = require $localCfg;
+    $config = array_replace_recursive($config, $local);
+}
+
 if ($config['debug'] ?? false) {
     ini_set('display_errors', 1);
     error_reporting(E_ALL);

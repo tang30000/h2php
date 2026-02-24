@@ -22,6 +22,18 @@ class Core
     /** @var string 当前控制器路径（a/b），用于自动推断模板 */
     public string $_path = '';
 
+    /**
+     * 跳过 before() 的方法列表
+     *
+     * 在子类中设置，列出的方法不会调用 before() 钩子。
+     *
+     * 示例：公开 index/list 页面，其他方法需要登录
+     *   protected array \$skipBefore = ['index', 'list'];
+     *
+     * @var string[]
+     */
+    protected array $skipBefore = [];
+
     // -------------------------------------------------------------------------
     // 模板变量传递
     // -------------------------------------------------------------------------
@@ -329,6 +341,74 @@ class Core
     }
 
     // -------------------------------------------------------------------------
+    // HTTP 响应辅助
+    // -------------------------------------------------------------------------
+
+    /**
+     * 终止并输出错误页面（支持自定义错误模板）
+     *
+     * 用法：$this->abort(403, '无权访问');
+     */
+    public function abort(int $code, string $message = ''): void
+    {
+        \Lib\Router::abort($code, $message);
+    }
+
+    /**
+     * 文件上传辅助（返回可链式配置的 Upload 实例）
+     *
+     * 用法：
+     *   $file = $this->upload('avatar', 'static/uploads/avatars');
+     *   if ($file->fails()) {
+     *       $this->flash('error', $file->error());
+     *       $this->redirect('/user/profile');
+     *   }
+     *   $path = $file->path();  // 存入数据库的相对路径
+     *
+     * 链式配置（可选）：
+     *   $file = $this->upload('photo', 'static/uploads')
+     *       ->maxSize(3 * 1024 * 1024)         // 最大 3 MB
+     *       ->allowTypes(['jpg', 'png', 'webp']) // 允许类型
+     *       ->rename('timestamp');               // 命名策略
+     *
+     * @param string $field   表单 file 字段名
+     * @param string $destDir 存储目录（相对 ROOT）
+     */
+    public function upload(string $field, string $destDir): \Lib\Upload
+    {
+        return new \Lib\Upload($field, $destDir);
+    }
+
+    /**
+     * JSON 成功响应
+     *
+     * 用法：$this->success($data);
+     *        $this->success($data, '操作成功');
+     *
+     * @param mixed  $data 响应数据
+     * @param string $msg  提示信息
+     * @param int    $code 业务状态码（默认 0）
+     */
+    public function success($data = null, string $msg = 'ok', int $code = 0): void
+    {
+        $this->json(['code' => $code, 'msg' => $msg, 'data' => $data]);
+    }
+
+    /**
+     * JSON 失败响应
+     *
+     * 用法：$this->fail('参数错误');
+     *        $this->fail('资源不存在', 404);
+     *
+     * @param string $msg  错误描述
+     * @param int    $code 业务错误码（默认 -1）
+     */
+    public function fail(string $msg, int $code = -1): void
+    {
+        $this->json(['code' => $code, 'msg' => $msg, 'data' => null]);
+    }
+
+    // -------------------------------------------------------------------------
     // 队列
     // -------------------------------------------------------------------------
 
@@ -422,7 +502,12 @@ class Core
     // -------------------------------------------------------------------------
 
     /**
-     * 在实际方法执行前调用（可在子类中实现鉴权等）
+     * 在实际方法执行前调用
+     *
+     * 子类实现鉴权时，通过 $skipBefore 跳过特定方法：
+     *   protected array $skipBefore = ['index', 'list'];
+     *
+     * 注意：Router 会将当前方法名写入 $this->_method，不需自行获取。
      */
     public function before(): void {}
 
@@ -430,4 +515,19 @@ class Core
      * 在实际方法执行后调用
      */
     public function after(): void {}
+
+    // -------------------------------------------------------------------------
+    // 内部：操作 skipBefore
+    // -------------------------------------------------------------------------
+
+    /** 当前调用的方法名（由 Router 写入） */
+    public string $_method = '';
+
+    /**
+     * 判断当前方法是否应跳过 before()
+     */
+    final public function shouldRunBefore(): bool
+    {
+        return !in_array($this->_method, $this->skipBefore, true);
+    }
 }
