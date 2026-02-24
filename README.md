@@ -273,6 +273,10 @@ class main extends \Lib\Core
 | `$this->csrfToken()` | 获取/生成 CSRF Token |
 | `$this->csrfField()` | 返回 CSRF 隐藏字段 HTML |
 | `$this->csrfVerify()` | 校验 POST 中的 CSRF token，失败返回 403 |
+| `$this->abort($code, $msg)` | 终止并输出错误页（支持自定义 `_errors/` 模板） |
+| `$this->success($data, $msg)` | JSON 成功响应 `{"code":0,"msg":"ok","data":...}` |
+| `$this->fail($msg, $code)` | JSON 失败响应 `{"code":-1,"msg":"...","data":null}` |
+| `$this->upload($field, $dir)` | 文件上传辅助，返回 `Upload` 实例 |
 | `$this->on($event, $fn)` | 注册事件监听器（请求内有效） |
 | `$this->fire($event, $data)` | 触发事件 |
 | `$this->queue($jobName, $payload)` | 将任务推入队列（异步执行） |
@@ -656,11 +660,14 @@ $rows = $this->db->query('SELECT * FROM users WHERE age > ?', [18]);
 
 ---
 
-## 鉴权示例（before 钩子）
+## 鉴权示例（before 钩子 + skipBefore）
 
 ```php
 class main extends \Lib\Core
 {
+    // 公开方法跳过鉴权
+    protected array $skipBefore = ['index', 'list'];
+
     public function before(): void
     {
         if (empty($_SESSION['user'])) {
@@ -668,12 +675,95 @@ class main extends \Lib\Core
         }
     }
 
+    public function index(): void { $this->render(); } // 无需登录
+
     public function dashboard(): void
     {
         // before() 验证通过后才会执行
         $this->render();
     }
 }
+```
+
+---
+
+## abort / success / fail
+
+```php
+// 终止并输出错误页（使用 views/_errors/{code}.html 或内置样式）
+$this->abort(403, '无权访问');
+$this->abort(404, '资源不存在');
+
+// JSON API 标准响应
+$this->success($data);                      // {"code":0,"msg":"ok","data":...}
+$this->success($data, '操作成功');
+$this->fail('参数错误');                     // {"code":-1,"msg":"参数错误","data":null}
+$this->fail('资源不存在', 404);
+```
+
+---
+
+## 文件上传
+
+```php
+$file = $this->upload('avatar', 'static/uploads/avatars');
+
+if ($file->fails()) {
+    $this->flash('error', $file->error());
+    $this->redirect('/user/profile');
+}
+
+// 存入数据库的相对路径，可直接用于 <img src>
+$path = $file->path();  // 例：static/uploads/avatars/3f2a...b1.jpg
+
+// 链式配置（可选）
+$file = $this->upload('photo', 'static/uploads')
+    ->maxSize(3 * 1024 * 1024)          // 最大 3 MB（默认 5 MB）
+    ->allowTypes(['jpg', 'png', 'webp']) // 允许类型（默认含常见图片/PDF/zip）
+    ->rename('timestamp');               // uuid（默认）| timestamp | original
+```
+
+---
+
+## 本地配置覆盖（config.local.php）
+
+本地开发时，无需修改 `config.php`，创建 `config/config.local.php`（已加入 `.gitignore`）：
+
+```bash
+cp config/config.local.example.php config/config.local.php
+```
+
+```php
+// config/config.local.php
+return [
+    'debug' => true,
+    'db' => [
+        'dsn'      => 'mysql:host=127.0.0.1;dbname=h2php_dev;charset=utf8mb4',
+        'user'     => 'root',
+        'password' => '',
+    ],
+];
+```
+
+框架在加载 `config.php` 后自动检测并深度合并 `config.local.php`，任意配置项均可覆盖。
+
+---
+
+## DB 自动时间戳
+
+```php
+// insert() 自动填充 created_at 和 updated_at
+$id = $this->db->table('posts')->timestamps()->insert([
+    'title' => '我的第一篇文章',
+    'body'  => '内容...',
+]);
+
+// update() 自动更新 updated_at
+$this->db->table('posts')->timestamps()->where('id=?', [$id])->update([
+    'title' => '修改后的标题',
+]);
+
+// 不传 timestamps() 则不自动处理，保持原有行为
 ```
 
 ---
