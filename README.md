@@ -77,6 +77,50 @@ URL:  /{a}/{b}/{c}/{d1}/{d2}
 
 ---
 
+## CLI 工具
+
+所有命令通过根目录的 `h2` 脚本执行（`php h2 <命令>`）：
+
+### 代码生成
+
+```bash
+# 生成控制器（自动创建 app/user/login.php）
+php h2 make:controller user/login
+
+# 生成视图模板（自动创建 views/user/login/index.html）
+php h2 make:view user/login/index
+
+# 生成 Job 模板（自动创建 app/jobs/SendWelcomeEmail.php）
+php h2 make:job SendWelcomeEmail
+```
+
+### 数据库迁移
+
+```bash
+php h2 migrate             # 运行所有未执行的迁移
+php h2 migrate:rollback    # 回滚上一批迁移
+php h2 migrate:status      # 查看所有迁移的执行状态
+```
+
+### 队列 Worker
+
+```bash
+php h2 queue:work          # 启动 Worker，持续轮询（Ctrl+C 停止）
+php h2 queue:work --once   # 处理一个任务就退出，适合 cron 调度
+php h2 queue:status        # 查看各状态任务数量（pending/done/failed）
+php h2 queue:clear         # 清除已完成、失败的任务记录
+```
+
+### 测试
+
+```bash
+php h2 test                         # 运行全部测试
+php h2 test --filter testEmail      # 只运行匹配名称的测试
+php h2 test --testsuite Unit        # 只运行 Unit 套件
+```
+
+---
+
 ## 快速开始
 
 ### 1. 部署
