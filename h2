@@ -23,6 +23,7 @@ switch ($command) {
     case 'migrate':                 migrate();            break;
     case 'migrate:rollback':        migrateRollback();    break;
     case 'migrate:status':          migrateStatus();      break;
+    case 'test':                    runTests($argv);      break;
     default:                        showHelp();           break;
 }
 
@@ -217,6 +218,18 @@ function migrateStatus(): void
 // 辅助
 // ─────────────────────────────────────────────────────────────────────────────
 
+function runTests(array $argv): void
+{
+    $vendor = ROOT . '/vendor/bin/phpunit';
+    if (!file_exists($vendor)) {
+        fail("PHPUnit 未安装，请先运行：composer install");
+    }
+    // 透传额外参数，如 --filter / --testsuite / --coverage-text
+    $extra = array_slice($argv, 2);
+    $cmd   = 'php ' . escapeshellarg($vendor) . ' ' . implode(' ', array_map('escapeshellarg', $extra));
+    passthru($cmd);
+}
+
 function showHelp(): void
 {
     echo <<<HELP
@@ -228,12 +241,16 @@ H2PHP CLI 工具
   php h2 migrate                         运行未执行的迁移
   php h2 migrate:rollback                回滚上一批迁移
   php h2 migrate:status                  显示迁移状态
+  php h2 test [phpunit 参数]             运行测试
 
 示例：
   php h2 make:controller user/login
   php h2 make:view user/login/index
   php h2 migrate
   php h2 migrate:status
+  php h2 test
+  php h2 test --filter testEmail
+  php h2 test --testsuite Unit
 
 HELP;
 }

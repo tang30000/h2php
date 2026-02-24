@@ -16,3 +16,10 @@ Thumbs.db
 # 缓存文件（保留目录本身）
 /cache/*.cache
 /cache/*.php
+
+# Composer 安装目录（运行时依赖）
+/vendor/
+
+# PHPUnit 覆盖率报告
+/.phpunit.result.cache
+/coverage/
