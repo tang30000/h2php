@@ -24,3 +24,4 @@ Thumbs.db
 /.phpunit.result.cache
 /coverage/
 /config/config.local.php
+/logs/

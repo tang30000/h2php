@@ -374,6 +374,22 @@ class Core
     }
 
     /**
+     * 写入日志
+     *
+     * 用法：
+     *   $this->log('info', '用户登录', ['user_id' => $id]);
+     *   $this->log('error', '支付失败', ['reason' => $msg]);
+     *
+     * @param string $level   info | warning | error | debug
+     * @param string $message 日志消息
+     * @param array  $context 附加数据
+     */
+    public function log(string $level, string $message, array $context = []): void
+    {
+        \Lib\Logger::write($level, $message, $context);
+    }
+
+    /**
      * 文件上传辅助（返回可链式配置的 Upload 实例）
      *
      * 用法：

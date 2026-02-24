@@ -27,6 +27,15 @@ class DB
     /** @var bool 是否自动维护时间戳（created_at / updated_at） */
     private bool $timestamps = false;
 
+    /** @var bool 是否启用软删除（自动过滤 deleted_at IS NOT NULL 的记录） */
+    private bool $softDeletes = false;
+
+    /** @var bool 是否包含已软删除记录 */
+    private bool $withTrashed = false;
+
+    /** @var bool 是否只查已软删除记录 */
+    private bool $onlyTrashed = false;
+
     public function __construct(array $config)
     {
         $this->pdo = new \PDO(
@@ -258,6 +267,66 @@ class DB
     }
 
     // -------------------------------------------------------------------------
+    // 软删除
+    // -------------------------------------------------------------------------
+
+    /**
+     * 启用软删除模式
+     *
+     * 启用后：
+     *   - 查询自动过滤 deleted_at IS NOT NULL 的记录
+     *   - delete() 变为 softDelete()（设置 deleted_at）
+     *   - 可用 withTrashed()  查询全部（含已删）
+     *   - 可用 onlyTrashed() 只查已删除的
+     *   - 可用 restore()     恢复已删记录
+     *
+     * 用法：\$this->db->table('posts')->softDeletes()->where('id=?',[$id])->delete();
+     */
+    public function softDeletes(): self
+    {
+        $clone = clone $this;
+        $clone->softDeletes = true;
+        return $clone;
+    }
+
+    /** 查询时包含已软删除的记录 */
+    public function withTrashed(): self
+    {
+        $clone = clone $this;
+        $clone->withTrashed = true;
+        return $clone;
+    }
+
+    /** 只查询已软删除的记录 */
+    public function onlyTrashed(): self
+    {
+        $clone = clone $this;
+        $clone->onlyTrashed = true;
+        return $clone;
+    }
+
+    /**
+     * 软删除（设置 deleted_at）
+     */
+    public function softDelete(): int
+    {
+        return $this->update(['deleted_at' => date('Y-m-d H:i:s')]);
+    }
+
+    /**
+     * 恢复已软删除的记录
+     */
+    public function restore(): int
+    {
+        $sets = "`deleted_at` = NULL";
+        $sql  = "UPDATE `{$this->table}` SET {$sets}"
+              . ($this->where ? " WHERE {$this->where}" : '');
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($this->params);
+        return $stmt->rowCount();
+    }
+
+    // -------------------------------------------------------------------------
     // 直接 SQL 执行
     // -------------------------------------------------------------------------
 
@@ -287,6 +356,55 @@ class DB
     public function pdo(): \PDO
     {
         return $this->pdo;
+    }
+
+    // -------------------------------------------------------------------------
+    // 事务
+    // -------------------------------------------------------------------------
+
+    /** 开始事务 */
+    public function beginTransaction(): bool
+    {
+        return $this->pdo->beginTransaction();
+    }
+
+    /** 提交事务 */
+    public function commit(): bool
+    {
+        return $this->pdo->commit();
+    }
+
+    /** 回滚事务 */
+    public function rollback(): bool
+    {
+        return $this->pdo->rollBack();
+    }
+
+    /**
+     * 事务闭包（自动 commit/rollback）
+     *
+     * 用法：
+     *   \$this->db->transaction(function(\$db) {
+     *       \$db->table('orders')->insert([...]);
+     *       \$db->table('stock')->where('id=?',[1])->update(['qty' => 99]);
+     *   });
+     *
+     * 闭包内抛异常自动回滚并重新抛出。
+     *
+     * @param callable $callback 接收 DB 实例参数
+     * @return mixed 闭包返回值
+     */
+    public function transaction(callable $callback)
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $result = $callback($this);
+            $this->pdo->commit();
+            return $result;
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -367,7 +485,6 @@ class DB
     private function buildSelect(): string
     {
         if (!empty($this->__btm)) {
-            // belongsToMany 模式：fields 已含完整的 FROM ... INNER JOIN ...
             $sql = "SELECT {$this->fields}";
             if ($this->where) $sql .= " WHERE {$this->where}";
             if ($this->order) $sql .= " ORDER BY {$this->order}";
@@ -376,7 +493,17 @@ class DB
         }
 
         $sql = "SELECT {$this->fields} FROM `{$this->table}`";
-        if ($this->where) $sql .= " WHERE {$this->where}";
+
+        // 构建 WHERE（含软删除过滤）
+        $where = $this->where;
+        if ($this->softDeletes && !$this->withTrashed) {
+            $sd = $this->onlyTrashed
+                ? "`deleted_at` IS NOT NULL"
+                : "`deleted_at` IS NULL";
+            $where = $where ? "({$where}) AND {$sd}" : $sd;
+        }
+
+        if ($where) $sql .= " WHERE {$where}";
         if ($this->order) $sql .= " ORDER BY {$this->order}";
         if ($this->limit) $sql .= " LIMIT {$this->limit}";
         return $sql;

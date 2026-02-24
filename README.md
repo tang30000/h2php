@@ -12,18 +12,36 @@ H2PHP 是一个极简的单入口 PHP 框架。路由即目录结构，模板与
 
 ## 特性
 
-- **单入口路由** — 所有请求经由根目录 `index.php` 分发
-- **目录即路由** — URL 结构与文件目录一一对应，一眼看懂
-- **数字位置参数** — URL 第 4 段起全部作为位置参数，支持字符串（slug/hash）和整数，按方法类型提示自动转型
-- **模板** — 布局（Layout）、局部模板（Partial）、变量传递，保留原生 PHP 语法
-- **极简依赖** — 仅需 PHP 7.2+，运行时零 Composer 依赖
-- **链式 DB** — PDO 封装，支持链式查询 / 关联关系 / 查询缓存
-- **表单验证** — 13 种内置规则，支持自定义标签和数据库唯一性校验
+- **单入口路由** — 所有请求经由 `index.php` 分发，URL 即目录结构
+- **位置参数** — 支持字符串/整数，按方法类型提示自动转型
+- **模板** — 布局（Layout）、局部模板（Partial）、原生 PHP 语法
+- **中间件** — 洋葱模型管道，全局 + 控制器级，无配置零开销
+- **链式 DB** — 查询 / 关联 / 缓存 / 事务 / 软删除 / 自动时间戳
+- **表单验证** — 13 种内置规则 + 数据库唯一性校验
+- **文件上传** — 链式配置，自动验证大小/类型/重命名
+- **队列** — 数据库/Redis 双驱动，延迟入队
+- **任务调度** — Cron 式调度器，8 种频率方法
+- **事件系统** — 请求内发布/订阅
+- **日志** — 分级（info/warning/error/debug），按日期自动分文件
 - **CSRF / Flash / 分页** — 开箱即用
-- **队列 + 事件** — 数据库/Redis 双驱动，`php h2 queue:work` 启动 Worker
-- **数据库迁移** — `migrations/` 目录，按批次执行/回滚
-- **CLI 工具** — `php h2 make:controller` / `make:view` / `migrate` / `queue:work` / `test`
-- **PHPUnit 测试** — 内置 Unit/Feature 套件，示例测试覆盖 Validator 与 DB
+- **数据库迁移** — 按批次执行/回滚
+- **CLI 工具** — make:controller / view / job / task / migrate / queue / schedule / test
+- **本地配置** — `config.local.php` 覆盖，不提交 Git
+- **PHPUnit** — 内置 Unit/Feature 套件
+- **极简依赖** — 仅需 PHP 7.2+，运行时零 Composer 依赖
+
+---
+
+### 📖 目录
+
+| 分类 | 章节 |
+|------|------|
+| 快速上手 | [目录结构](#目录结构) · [路由规则](#路由规则) · [CLI 工具](#cli-工具) · [快速开始](#快速开始) |
+| 核心功能 | [Core API](#core-基类-api) · [DB 链式查询](#db-链式查询) · [ORM 关联](#orm-关联关系) · [事务](#db-事务) · [软删除](#db-软删除) · [自动时间戳](#db-自动时间戳) |
+| 请求处理 | [中间件](#中间件middleware) · [鉴权 before+skipBefore](#鉴权示例before-钩子--skipbefore) · [表单验证](#表单验证) · [CSRF](#csrf-保护) · [文件上传](#文件上传) |
+| 模板系统 | [布局与局部模板](#布局与局部模板) · [Flash 消息](#flash-消息) · [分页](#分页辅助) · [自定义错误页](#自定义错误页) |
+| 异步与调度 | [队列](#队列) · [事件](#事件) · [任务调度](#任务调度scheduler) |
+| 基础设施 | [缓存](#查询缓存) · [日志](#日志) · [数据库迁移](#数据库迁移) · [本地配置](#本地配置覆盖configlocalphp) · [测试](#测试) |
 
 ---
 
@@ -815,6 +833,78 @@ $this->db->table('posts')->timestamps()->where('id=?', [$id])->update([
 ]);
 
 // 不传 timestamps() 则不自动处理，保持原有行为
+```
+
+---
+
+## DB 事务
+
+```php
+// 手动事务
+$this->db->beginTransaction();
+try {
+    $this->db->table('orders')->insert(['user_id' => $uid, 'total' => 100]);
+    $this->db->table('stock')->where('id=?', [1])->update(['qty' => 99]);
+    $this->db->commit();
+} catch (\Throwable $e) {
+    $this->db->rollback();
+    throw $e;
+}
+
+// 闭包事务（推荐，自动 commit/rollback）
+$this->db->transaction(function($db) use ($uid) {
+    $db->table('orders')->insert(['user_id' => $uid, 'total' => 100]);
+    $db->table('stock')->where('id=?', [1])->update(['qty' => 99]);
+    // 抛异常自动回滚
+});
+```
+
+---
+
+## DB 软删除
+
+为表添加 `deleted_at` 字段（DATETIME, NULL），然后使用 `softDeletes()` 开启：
+
+```php
+// 软删除（设置 deleted_at，不物理删除）
+$this->db->table('posts')->softDeletes()->where('id=?', [$id])->softDelete();
+
+// 查询自动排除已软删除的记录
+$posts = $this->db->table('posts')->softDeletes()->fetchAll();
+
+// 包含已删除记录
+$all = $this->db->table('posts')->softDeletes()->withTrashed()->fetchAll();
+
+// 只查已删除的
+$trashed = $this->db->table('posts')->softDeletes()->onlyTrashed()->fetchAll();
+
+// 恢复
+$this->db->table('posts')->softDeletes()->where('id=?', [$id])->restore();
+```
+
+> 不调用 `softDeletes()` 时，`delete()` 仍为物理删除，完全向后兼容。
+
+---
+
+## 日志
+
+```php
+// 控制器中
+$this->log('info', '用户登录', ['user_id' => $id]);
+$this->log('error', '支付失败', ['order_id' => 123, 'reason' => $msg]);
+
+// 静态调用（任意位置）
+\Lib\Logger::info('缓存已清除');
+\Lib\Logger::warning('库存不足', ['sku' => 'A001']);
+\Lib\Logger::error('数据库连接失败', ['dsn' => $dsn]);
+\Lib\Logger::debug('SQL 执行', ['sql' => $sql, 'time' => $ms]);
+```
+
+日志文件按日期自动分割：`logs/2026-02-25.log`
+
+```
+[2026-02-25 14:30:15] [INFO] 用户登录 {"user_id":5}
+[2026-02-25 14:30:16] [ERROR] 支付失败 {"order_id":123,"reason":"余额不足"}
 ```
 
 ---
