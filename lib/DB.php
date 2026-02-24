@@ -299,12 +299,55 @@ class DB
         return $this->table($relTable)->where("{$pk}=?", [$fkValue]);
     }
 
+    /**
+     * 多对多：通过中间表获取关联记录（返回可链式的 DB 实例）
+     *
+     * @param string $relTable   关联表名（目标表）
+     * @param string $pivotTable 中间表名
+     * @param string $localFk    中间表中指向当前记录的外键
+     * @param string $relFk      中间表中指向关联记录的外键
+     * @param mixed  $pkValue    当前记录的主键值
+     *
+     * 用法：
+     *   // 获取文章的所有标签（通过 post_tag 中间表）
+     *   $tags = $this->db->belongsToMany('tags', 'post_tag', 'post_id', 'tag_id', $postId)
+     *       ->order('tags.name')->fetchAll();
+     */
+    public function belongsToMany(
+        string $relTable,
+        string $pivotTable,
+        string $localFk,
+        string $relFk,
+        $pkValue
+    ): self {
+        $clone        = clone $this;
+        $clone->table = $relTable;
+        $clone->where = "`{$pivotTable}`.`{$localFk}`=?";
+        $clone->params = [$pkValue];
+        $clone->order  = '';
+        $clone->limit  = '';
+        // 将 INNER JOIN 嵌入 fields 作为自定义前缀（buildSelect 会原样包含）
+        $clone->fields = "`{$relTable}`.* FROM `{$pivotTable}` INNER JOIN `{$relTable}` ON `{$pivotTable}`.`{$relFk}`=`{$relTable}`.`id`";
+        // 标记 table 为空使 buildSelect 跳过 FROM 部分
+        $clone->__btm = true;
+        return $clone;
+    }
+
     // -------------------------------------------------------------------------
     // 内部辅助
     // -------------------------------------------------------------------------
 
     private function buildSelect(): string
     {
+        if (!empty($this->__btm)) {
+            // belongsToMany 模式：fields 已含完整的 FROM ... INNER JOIN ...
+            $sql = "SELECT {$this->fields}";
+            if ($this->where) $sql .= " WHERE {$this->where}";
+            if ($this->order) $sql .= " ORDER BY {$this->order}";
+            if ($this->limit) $sql .= " LIMIT {$this->limit}";
+            return $sql;
+        }
+
         $sql = "SELECT {$this->fields} FROM `{$this->table}`";
         if ($this->where) $sql .= " WHERE {$this->where}";
         if ($this->order) $sql .= " ORDER BY {$this->order}";

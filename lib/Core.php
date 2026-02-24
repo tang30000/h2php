@@ -337,13 +337,17 @@ class Core
      *
      * Job 文件放在 app/jobs/ 目录，类名与文件名一致，实现 handle(array $payload) 方法。
      *
-     * 用法：$this->queue('SendWelcomeEmail', ['user_id' => 5, 'email' => 'a@b.com']);
+     * @param int $delay 延迟秒数（0=立即，3600=1小时后）
+     *
+     * 用法：
+     *   $this->queue('SendWelcomeEmail', ['user_id' => 5]);          // 立即
+     *   $this->queue('SendReminder',    ['user_id' => 5], delay: 3600); // 1小时后
      *
      * Worker 启动：php h2 queue:work
      */
-    public function queue(string $jobName, array $payload = []): void
+    public function queue(string $jobName, array $payload = [], int $delay = 0): void
     {
-        \Lib\Queue::push($jobName, $payload, $this->config);
+        \Lib\Queue::push($jobName, $payload, $this->config, $delay);
     }
 
     // -------------------------------------------------------------------------

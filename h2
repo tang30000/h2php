@@ -21,12 +21,15 @@ switch ($command) {
     case 'make:controller': makeController($arg); break;
     case 'make:view':       makeView($arg);       break;
     case 'make:job':        makeJob($arg);        break;
+    case 'make:task':       makeTask($arg);       break;
     case 'migrate':                 migrate();            break;
     case 'migrate:rollback':        migrateRollback();    break;
     case 'migrate:status':          migrateStatus();      break;
     case 'queue:work':              queueWork($argv);     break;
     case 'queue:status':            queueStatus();        break;
     case 'queue:clear':             queueClear();         break;
+    case 'schedule:run':            scheduleRun();        break;
+    case 'schedule:list':           scheduleList();       break;
     case 'test':                    runTests($argv);      break;
     default:                        showHelp();           break;
 }
@@ -289,6 +292,80 @@ function queueClear(): void
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// make:task
+// ─────────────────────────────────────────────────────────────────────────────
+
+function makeTask(string $name): void
+{
+    if (!$name) {
+        fail("用法: php h2 make:task <类名>  例：php h2 make:task CleanExpiredTokens");
+    }
+    $path = ROOT . "/app/tasks/{$name}.php";
+    if (file_exists($path)) {
+        fail("文件已存在：app/tasks/{$name}.php");
+    }
+    @mkdir(dirname($path), 0755, true);
+    $content = <<<PHP
+<?php
+class {$name}
+{
+    public function handle(): void
+    {
+        // TODO: 实现定时任务逻辑
+    }
+}
+PHP;
+    file_put_contents($path, $content);
+    ok("已创建 Task：app/tasks/{$name}.php");
+    info("在 app/schedules.php 中注册：\\\$s->call('{$name}')->daily();");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// schedule:run / schedule:list
+// ─────────────────────────────────────────────────────────────────────────────
+
+function loadScheduler(): \Lib\Scheduler
+{
+    require LIB . '/Scheduler.php';
+    $scheduler = new \Lib\Scheduler();
+    $file = ROOT . '/app/schedules.php';
+    if (file_exists($file)) {
+        $fn = require $file;
+        if (is_callable($fn)) $fn($scheduler);
+    }
+    return $scheduler;
+}
+
+function scheduleRun(): void
+{
+    define('APP', ROOT . '/app');
+    define('LIB', ROOT . '/lib');
+    require LIB . '/Scheduler.php';
+    $scheduler = loadScheduler();
+    $scheduler->runDue();
+}
+
+function scheduleList(): void
+{
+    define('APP', ROOT . '/app');
+    define('LIB', ROOT . '/lib');
+    require LIB . '/Scheduler.php';
+    $scheduler = loadScheduler();
+    $tasks = $scheduler->listAll();
+
+    if (!$tasks) {
+        info("app/schedules.php 中没有任何注册的任务。");
+        return;
+    }
+
+    printf("%-30s %-20s %s\n", "任务名称", "Cron 表达式", "描述");
+    echo str_repeat('-', 70) . "\n";
+    foreach ($tasks as $t) {
+        printf("%-30s %-20s %s\n", $t->name, $t->getExpression(), $t->description);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 辅助
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -307,20 +384,34 @@ function runTests(array $argv): void
 function showHelp(): void
 {
     echo <<<HELP
-H2PHP CLI \u5de5\u5177
+H2PHP CLI 工具
 
-\u7528\u6cd5\uff1a
-  php h2 make:controller <\u76ee\u5f55/\u6587\u4ef6\u540d>   \u521b\u5efa\u63a7\u5236\u5668
-  php h2 make:view <\u6a21\u5757/\u529f\u80fd/\u65b9\u6cd5>      \u521b\u5efa\u89c6\u56fe\u6a21\u677f
-  php h2 make:job  <\u7c7b\u540d>              \u521b\u5efa Job \u6a21\u677f
-  php h2 migrate                         \u8fd0\u884c\u672a\u6267\u884c\u7684\u8fc1\u79fb
-  php h2 migrate:rollback                \u56de\u6eda\u4e0a\u4e00\u6279\u8fc1\u79fb
-  php h2 migrate:status                  \u663e\u793a\u8fc1\u79fb\u72b6\u6001
-  php h2 queue:work                      \u542f\u52a8\u961f\u5217 Worker\uff08\u6301\u7eed\u8fd0\u884c\uff09
-  php h2 queue:work --once               \u5904\u7406\u4e00\u4e2a\u4efb\u52a1\u5c31\u9000\u51fa\uff08\u9002\u5408 cron\uff09
-  php h2 queue:status                    \u67e5\u770b\u961f\u5217\u72b6\u6001
-  php h2 queue:clear                     \u6e05\u9664\u5df2\u5b8c\u6210/\u5931\u8d25\u4efb\u52a1
-  php h2 test [phpunit \u53c2\u6570]             \u8fd0\u884c\u6d4b\u8bd5
+代码生成：
+  php h2 make:controller <目录/文件名>   创建控制器
+  php h2 make:view <模块/功能/方法>      创建视图模板
+  php h2 make:job  <类名>               创建 Job 模板
+  php h2 make:task <类名>               创建定时任务模板
+
+数据库迁移：
+  php h2 migrate                         运行未执行的迁移
+  php h2 migrate:rollback                回滚上一批迁移
+  php h2 migrate:status                  显示迁移状态
+
+队列：
+  php h2 queue:work                      启动 Worker（持续运行）
+  php h2 queue:work --once               处理一个任务就退出（适合 cron）
+  php h2 queue:status                    查看各状态任务数量
+  php h2 queue:clear                     清除已完成/失败任务记录
+
+定时任务（Scheduler）：
+  php h2 schedule:run                    执行所有到期的定时任务
+  php h2 schedule:list                   列出所有已注册的定时任务
+
+测试：
+  php h2 test [phpunit 参数]             运行测试
+
+系统 cron 只需一条（每分钟执行一次）：
+  * * * * * php /path/to/h2 schedule:run
 
 HELP;
 }

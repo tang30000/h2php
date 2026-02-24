@@ -26,6 +26,9 @@ namespace Lib;
  *   // 或直接调用
  *   Queue::push('SendWelcomeEmail', ['user_id' => 5], $config);
  *
+ *   // 延迟入队（3600 秒后执行）
+ *   $this->queue('SendReminder', ['user_id' => 5], delay: 3600);
+ *
  *   // Worker（后台持续运行）
  *   php h2 queue:work
  *
@@ -41,19 +44,20 @@ class Queue
     /**
      * 将任务推入队列
      *
-     * @param string $jobName  Job 类名，对应 app/jobs/{JobName}.php
+     * @param string $jobName  Job 类名
      * @param array  $payload  传给 handle() 的数据
-     * @param array  $config   框架配置（取 'queue' 和 'db' 键）
+     * @param array  $config   框架配置
+     * @param int    $delay    延迟秒数（0 = 立即可用）
      */
-    public static function push(string $jobName, array $payload, array $config): void
+    public static function push(string $jobName, array $payload, array $config, int $delay = 0): void
     {
         $qCfg  = $config['queue'] ?? [];
         $driver = $qCfg['driver'] ?? 'database';
 
         if ($driver === 'redis') {
-            self::redisPush($jobName, $payload, $qCfg);
+            self::redisPush($jobName, $payload, $qCfg, $delay);
         } else {
-            self::dbPush($jobName, $payload, $config);
+            self::dbPush($jobName, $payload, $config, $delay);
         }
     }
 
@@ -115,17 +119,20 @@ class Queue
     // Database 驱动
     // -------------------------------------------------------------------------
 
-    private static function dbPush(string $jobName, array $payload, array $config): void
+    private static function dbPush(string $jobName, array $payload, array $config, int $delay = 0): void
     {
         $pdo = self::pdo($config);
         self::ensureTable($pdo);
 
+        $availableAt = $delay > 0 ? date('Y-m-d H:i:s', time() + $delay) : date('Y-m-d H:i:s');
+
         $pdo->prepare(
-            "INSERT INTO `_jobs` (name, payload, max_attempts) VALUES (?, ?, ?)"
+            "INSERT INTO `_jobs` (name, payload, max_attempts, available_at) VALUES (?, ?, ?, ?)"
         )->execute([
             $jobName,
             json_encode($payload, JSON_UNESCAPED_UNICODE),
             $config['queue']['max_attempts'] ?? 3,
+            $availableAt,
         ]);
     }
 
@@ -134,10 +141,10 @@ class Queue
         $pdo = self::pdo($config);
         self::ensureTable($pdo);
 
-        // 取一条 pending 任务并锁定
+        // 取一条 pending 且已到期的任务并锁定
         $pdo->beginTransaction();
         $job = $pdo->query(
-            "SELECT * FROM `_jobs` WHERE status='pending' ORDER BY id LIMIT 1 FOR UPDATE"
+            "SELECT * FROM `_jobs` WHERE status='pending' AND available_at <= NOW() ORDER BY id LIMIT 1 FOR UPDATE"
         )->fetch(\PDO::FETCH_ASSOC);
 
         if (!$job) {
@@ -178,14 +185,23 @@ class Queue
         return $r;
     }
 
-    private static function redisPush(string $jobName, array $payload, array $qCfg): void
+    private static function redisPush(string $jobName, array $payload, array $qCfg, int $delay = 0): void
     {
         $r   = self::redisConn($qCfg);
         $key = $qCfg['key'] ?? 'h2_jobs';
-        $r->rPush($key, json_encode([
-            'name'    => $jobName,
-            'payload' => $payload,
-        ], JSON_UNESCAPED_UNICODE));
+
+        $item = json_encode([
+            'name'         => $jobName,
+            'payload'      => $payload,
+            'available_at' => time() + $delay,
+        ], JSON_UNESCAPED_UNICODE);
+
+        if ($delay > 0) {
+            // 延迟任务存入 sorted set，score = 可执行时间戳
+            $r->zAdd("{$key}:delayed", time() + $delay, $item);
+        } else {
+            $r->rPush($key, $item);
+        }
     }
 
     private static function redisProcess(array $config, array $qCfg): bool
@@ -272,10 +288,11 @@ class Queue
             `status`       ENUM('pending','processing','done','failed') NOT NULL DEFAULT 'pending',
             `attempts`     TINYINT UNSIGNED NOT NULL DEFAULT 0,
             `max_attempts` TINYINT UNSIGNED NOT NULL DEFAULT 3,
+            `available_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             `error`        TEXT NULL,
             `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             `ran_at`       DATETIME NULL,
-            INDEX idx_status (status)
+            INDEX idx_status_avail (status, available_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         self::$tableEnsured = true;
     }
