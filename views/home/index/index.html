@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-lang="zh">
 
 <head>
     <meta charset="UTF-8">
@@ -7,7 +7,20 @@
     <title>
         <?= htmlspecialchars($title) ?>
     </title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #0d0d1a;
+            --surface: #161628;
+            --border: #2a2a45;
+            --accent: #7c3aed;
+            --accent2: #06d6a0;
+            --text: #e2e2f0;
+            --muted: #7a7a9a;
+            --warn-bg: rgba(251, 191, 36, .08);
+            --warn-bd: #fbbf24;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -15,123 +28,245 @@
         }
 
         body {
-            font-family: 'Segoe UI', sans-serif;
-            background: #f5f7fa;
-            color: #333;
-            padding: 40px;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 48px 32px;
         }
 
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 8px;
+        /* ── Header ── */
+        header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 36px;
+        }
+
+        .title-wrap h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a78bfa, #06d6a0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 6px;
         }
 
         .badge {
             display: inline-block;
-            background: #3498db;
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
             color: #fff;
-            padding: 2px 10px;
+            padding: 3px 12px;
             border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: .5px;
+        }
+
+        /* ── Language toggle ── */
+        .lang-toggle {
+            display: flex;
+            gap: 4px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px;
+            flex-shrink: 0;
+        }
+
+        .lang-toggle button {
+            padding: 5px 14px;
+            border: none;
+            border-radius: 5px;
             font-size: 13px;
-            margin-bottom: 24px;
+            font-weight: 500;
+            cursor: pointer;
+            background: transparent;
+            color: var(--muted);
+            transition: all .2s;
+        }
+
+        .lang-toggle button.active {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        /* ── Table ── */
+        .table-wrap {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            background: #fff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+        }
+
+        thead tr {
+            background: linear-gradient(90deg, #1e1b4b, #1e293b);
         }
 
         th {
-            background: #2c3e50;
-            color: #fff;
-            padding: 12px 16px;
+            padding: 14px 20px;
             text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            color: var(--muted);
         }
 
         td {
-            padding: 12px 16px;
-            border-bottom: 1px solid #eee;
-        }
-
-        tr:last-child td {
-            border-bottom: none;
+            padding: 14px 20px;
+            border-top: 1px solid var(--border);
+            font-size: 14px;
         }
 
         td a {
-            color: #3498db;
+            color: #a78bfa;
             text-decoration: none;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            transition: color .15s;
         }
 
         td a:hover {
-            text-decoration: underline;
+            color: var(--accent2);
         }
 
-        .footer {
-            margin-top: 24px;
-            color: #999;
-            font-size: 13px;
+        tbody tr {
+            transition: background .15s;
         }
 
+        tbody tr:hover {
+            background: rgba(124, 58, 237, .06);
+        }
+
+        /* ── Tip ── */
         .tip {
-            margin-top: 16px;
-            padding: 10px 14px;
-            background: #fffbea;
-            border-left: 4px solid #f39c12;
-            border-radius: 4px;
+            margin-top: 20px;
+            padding: 14px 18px;
+            background: var(--warn-bg);
+            border: 1px solid rgba(251, 191, 36, .2);
+            border-left: 4px solid var(--warn-bd);
+            border-radius: 8px;
             font-size: 13px;
-            color: #555;
-            line-height: 1.8;
+            color: #d4c5a9;
+            line-height: 1.9;
         }
 
         .tip code {
-            background: #f0f0f0;
-            padding: 1px 5px;
-            border-radius: 3px;
-            font-family: monospace;
+            background: rgba(255, 255, 255, .08);
+            color: #fbbf24;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
             font-size: 12px;
+        }
+
+        /* ── Footer ── */
+        footer {
+            margin-top: 28px;
+            font-size: 12px;
+            color: var(--muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        footer a {
+            color: #7c3aed;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── i18n ── */
+        [data-lang="zh"] [lang="en"],
+        [data-lang="en"] [lang="zh"] {
+            display: none;
         }
     </style>
 </head>
 
 <body>
-    <h1>
-        <?= htmlspecialchars($title) ?>
-    </h1>
-    <span class="badge">v
-        <?= htmlspecialchars($version) ?>
-    </span>
+    <header>
+        <div class="title-wrap">
+            <h1>
+                <?= htmlspecialchars($title) ?>
+            </h1>
+            <span class="badge">v
+                <?= htmlspecialchars($version) ?>
+            </span>
+        </div>
+        <div class="lang-toggle">
+            <button id="btn-zh" class="active" onclick="setLang('zh')">中文</button>
+            <button id="btn-en" onclick="setLang('en')">EN</button>
+        </div>
+    </header>
 
-    <table>
-        <thead>
-            <tr>
-                <th>URL 示例</th>
-                <th>说明</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($routes as $url => $desc): ?>
-            <tr>
-                <td><a href="<?= htmlspecialchars($url) ?>">
-                        <?= htmlspecialchars($url) ?>
-                    </a></td>
-                <td>
-                    <?= htmlspecialchars($desc) ?>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th><span lang="zh">URL 示例</span><span lang="en">URL Example</span></th>
+                    <th><span lang="zh">说明</span><span lang="en">Description</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($routes as $url => $info): ?>
+                <tr>
+                    <td><a href="<?= htmlspecialchars($url) ?>">
+                            <?= htmlspecialchars($url) ?>
+                        </a></td>
+                    <td>
+                        <span lang="zh">
+                            <?= htmlspecialchars($info['zh']) ?>
+                        </span>
+                        <span lang="en">
+                            <?= htmlspecialchars($info['en']) ?>
+                        </span>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 
-    <p class="tip">⚠️ 使用 PHP 内置服务器（<code>php -S</code>）本地测试时不支持 URL Rewrite，<br>
-        路由需在 URL 中加 <code>?</code> 前缀，例如：
-        <code>http://localhost:8080?user/login/show/42</code>
-    </p>
+    <div class="tip">
+        <span lang="zh">
+            ⚠️ 使用 <code>php -S</code> 内置服务器本地测试时不支持 URL Rewrite，<br>
+            路由需加 <code>?</code> 前缀，例如：<code>http://localhost:8080?user/login/show/42</code>
+        </span>
+        <span lang="en">
+            ⚠️ The PHP built-in server (<code>php -S</code>) does not support URL Rewrite.<br>
+            Prefix routes with <code>?</code>, e.g. <code>http://localhost:8080?user/login/show/42</code>
+        </span>
+    </div>
 
-    <p class="footer">H2PHP 轻量级 MVC 框架 — 路由即目录，简洁高效。</p>
+    <footer>
+        <span lang="zh">H2PHP 轻量级 MVC 框架 — 路由即目录，简洁高效。</span>
+        <span lang="en">H2PHP — Lightweight PHP MVC. Directory is Route. Simple & Fast.</span>
+        <a href="https://github.com/tang30000/h2php" target="_blank">GitHub →</a>
+    </footer>
+
+    <script>
+        function setLang(lang) {
+            document.documentElement.setAttribute('data-lang', lang);
+            document.getElementById('btn-zh').classList.toggle('active', lang === 'zh');
+            document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+            localStorage.setItem('h2php_lang', lang);
+        }
+        // 恢复上次语言偏好
+        const saved = localStorage.getItem('h2php_lang');
+        if (saved) setLang(saved);
+    </script>
 </body>
 
 </html>
