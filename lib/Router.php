@@ -105,20 +105,35 @@ class Router
 
     /**
      * 终止并输出错误页面
+     * 优先使用 views/_errors/{code}.html，不存在则用内置样式
      */
     public static function abort(int $code, string $message): void
     {
         http_response_code($code);
+
         switch ($code) {
             case 400: $title = '400 Bad Request'; break;
             case 403: $title = '403 Forbidden';   break;
             case 404: $title = '404 Not Found';   break;
             default:  $title = "{$code} Error";   break;
         }
-        echo "<!DOCTYPE html><html><head><meta charset='utf-8'><title>{$title}</title>"
-           . "<style>body{font-family:sans-serif;padding:40px;color:#333}"
-           . "h1{color:#c0392b}p{color:#666}</style></head><body>"
-           . "<h1>{$title}</h1><p>" . htmlspecialchars($message) . "</p></body></html>";
+
+        // 尝试自定义错误模板
+        $tplFile = VIEWS . "/_errors/{$code}.html";
+        if (!defined('VIEWS')) {
+            $tplFile = __DIR__ . "/../views/_errors/{$code}.html";
+        }
+
+        if (is_file($tplFile)) {
+            extract(['code' => $code, 'title' => $title, 'message' => $message]);
+            include $tplFile;
+        } else {
+            // 内置兜底样式
+            echo "<!DOCTYPE html><html><head><meta charset='utf-8'><title>{$title}</title>"
+               . "<style>body{font-family:sans-serif;padding:40px;color:#333}"
+               . "h1{color:#c0392b}p{color:#666}</style></head><body>"
+               . "<h1>{$title}</h1><p>" . htmlspecialchars($message) . "</p></body></html>";
+        }
         exit;
     }
 }

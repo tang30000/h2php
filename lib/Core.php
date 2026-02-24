@@ -175,6 +175,106 @@ class Core
     }
 
     // -------------------------------------------------------------------------
+    // Flash 消息（跨请求一次性提示）
+    // -------------------------------------------------------------------------
+
+    /**
+     * 设置 Flash 消息（存入 Session）
+     *
+     * 用法：$this->flash('success', '操作成功');
+     *       $this->flash('error',   '删除失败');
+     */
+    public function flash(string $type, string $message): void
+    {
+        $_SESSION['_flash'][$type] = $message;
+    }
+
+    /**
+     * 读取并清除 Flash 消息（只能消费一次）
+     *
+     * 用法：$msg = $this->getFlash('success');   // '操作成功' 或 null
+     *
+     * 模板中也可以直接通过 $this->set() 传递全部 flash:
+     *   $this->set('flash', $this->getAllFlash());
+     */
+    public function getFlash(string $type): ?string
+    {
+        $msg = $_SESSION['_flash'][$type] ?? null;
+        unset($_SESSION['_flash'][$type]);
+        return $msg;
+    }
+
+    /**
+     * 读取并清除所有 Flash 消息
+     * 返回关联数组，如 ['success' => '...', 'error' => '...']
+     */
+    public function getAllFlash(): array
+    {
+        $all = $_SESSION['_flash'] ?? [];
+        unset($_SESSION['_flash']);
+        return $all;
+    }
+
+    // -------------------------------------------------------------------------
+    // 分页辅助
+    // -------------------------------------------------------------------------
+
+    /**
+     * 生成分页数据
+     *
+     * @param int    $total    总记录数
+     * @param int    $page     当前页码（从 1 开始）
+     * @param int    $pagesize 每页条数
+     * @param string $baseUrl  基础 URL，不含页码段，如 '/article/list/show'
+     *
+     * @return array [
+     *   'page'    => 当前页,
+     *   'pages'   => 总页数,
+     *   'total'   => 总条数,
+     *   'limit'   => 每页条数,
+     *   'offset'  => SQL OFFSET,
+     *   'hasPrev' => bool,
+     *   'hasNext' => bool,
+     *   'prevUrl' => 上一页 URL 或 null,
+     *   'nextUrl' => 下一页 URL 或 null,
+     *   'links'   => [['page'=>N, 'url'=>'...', 'active'=>bool], ...]
+     * ]
+     */
+    public function paginate(int $total, int $page, int $pagesize, string $baseUrl = ''): array
+    {
+        $page     = max(1, $page);
+        $pagesize = max(1, $pagesize);
+        $pages    = $total > 0 ? (int)ceil($total / $pagesize) : 1;
+        $page     = min($page, $pages);
+        $offset   = ($page - 1) * $pagesize;
+
+        $url = function(int $p) use ($baseUrl, $pagesize): string {
+            return $baseUrl . '/' . $p . '/' . $pagesize;
+        };
+
+        // 生成页码链接（最多显 7 个页码按鈕）
+        $links = [];
+        $start = max(1, $page - 3);
+        $end   = min($pages, $page + 3);
+        for ($i = $start; $i <= $end; $i++) {
+            $links[] = ['page' => $i, 'url' => $url($i), 'active' => $i === $page];
+        }
+
+        return [
+            'page'    => $page,
+            'pages'   => $pages,
+            'total'   => $total,
+            'limit'   => $pagesize,
+            'offset'  => $offset,
+            'hasPrev' => $page > 1,
+            'hasNext' => $page < $pages,
+            'prevUrl' => $page > 1      ? $url($page - 1) : null,
+            'nextUrl' => $page < $pages ? $url($page + 1) : null,
+            'links'   => $links,
+        ];
+    }
+
+    // -------------------------------------------------------------------------
     // CSRF 保护
     // -------------------------------------------------------------------------
 

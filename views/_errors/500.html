@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <?= $title ?>
+    </title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d0d1a;
+            color: #e2e2f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .box {
+            text-align: center;
+        }
+
+        .code {
+            font-size: 96px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f87171, #fb923c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+        }
+
+        h1 {
+            font-size: 22px;
+            color: #7a7a9a;
+            margin: 12px 0 8px;
+        }
+
+        p {
+            font-size: 14px;
+            color: #555577;
+            margin-bottom: 24px;
+        }
+
+        a {
+            display: inline-block;
+            padding: 10px 24px;
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        a:hover {
+            opacity: .85;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="box">
+        <div class="code">500</div>
+        <h1>服务器内部错误</h1>
+        <p>
+            <?= htmlspecialchars($message) ?>
+        </p>
+        <a href="/">返回首页</a>
+    </div>
+</body>
+
+</html>
