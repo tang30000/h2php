@@ -371,7 +371,18 @@ public function show(int $id): void {
     $this->setMulti(compact('post', 'author', 'tags'));
     $this->render();
 }
+
+// 多对多：获取文章的所有标签（通过 post_tag 中间表）
+$tags = $this->db->belongsToMany('tags', 'post_tag', 'post_id', 'tag_id', $postId)
+    ->order('tags.name')
+    ->fetchAll();
 ```
+
+| 方法 | 说明 |
+|------|------|
+| `hasMany($table, $fk, $id)` | 一对多，返回可链式 DB |
+| `belongsTo($table, $pk, $fk)` | 多对一，通常接 `->fetch()` |
+| `belongsToMany($table, $pivot, $localFk, $relFk, $id)` | 多对多，INNER JOIN 中间表 |
 
 ---
 
@@ -412,6 +423,9 @@ class SendWelcomeEmail {
 ```php
 // 控制器里入队（立即返回，任务后台执行）
 $this->queue('SendWelcomeEmail', ['user_id' => $id, 'email' => $email]);
+
+// 延迟入队（1 小时后才会被 Worker 执行）
+$this->queue('SendReminder', ['user_id' => $id], delay: 3600);
 ```
 
 ```bash
@@ -437,6 +451,62 @@ php h2 queue:work
 
 > **database 驱动**：任务存入 `_jobs` 表（自动创建），使用 `FOR UPDATE` 防并发冲突，支持失败重试。  
 > **redis 驱动**：`BRPOP` 实时阻塞，近乎实时响应，适合高频场景。
+
+---
+
+## 任务调度（Scheduler）
+
+只需一条系统 cron，框架内部判断哪些任务到期执行：
+
+```bash
+# 系统 cron 只需这一条（每分钟由操作系统触发一次）
+* * * * * php /path/to/h2 schedule:run
+```
+
+在 `app/schedules.php` 定义所有任务：
+
+```php
+return function(\Lib\Scheduler $s) {
+
+    // 每天凌晨 2 点清理过期 Token
+    $s->call('CleanExpiredTokens')->daily()->description('清理过期 Token');
+
+    // 每天早上 8 点发送日报
+    $s->call('SendDailyReport')->dailyAt('08:00');
+
+    // 每 15 分钟同步库存
+    $s->call('SyncInventory')->everyMinutes(15);
+
+    // 每周一凌晨清理队列
+    $s->command('queue:clear')->weekly();
+
+    // 自定义 cron 表达式
+    $s->call('BackupDatabase')->cron('0 3 * * 0');
+
+    // 闭包任务
+    $s->job(function() {
+        // 简单逻辑直接写
+    }, 'CleanOldCache')->daily();
+};
+```
+
+| 频率方法 | 说明 |
+|---------|------|
+| `->everyMinute()` | 每分钟 |
+| `->everyMinutes(15)` | 每 15 分钟 |
+| `->hourly()` | 每小时整点 |
+| `->daily()` | 每天凌晨 0 点 |
+| `->dailyAt('08:30')` | 每天指定时间 |
+| `->weekly()` | 每周一凌晨 |
+| `->monthly()` | 每月 1 日凌晨 |
+| `->cron('0 2 * * 0')` | 自定义表达式 |
+
+Task 文件放在 `app/tasks/`，实现 `handle(): void` 方法：
+
+```bash
+php h2 make:task CleanExpiredTokens   # 生成模板
+php h2 schedule:list                  # 列出所有已注册任务
+```
 
 ---
 
