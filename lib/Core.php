@@ -169,7 +169,7 @@ class Core
             exit;
         }
 
-        // 自动注入 basePath 变量，视图中用 <?= $basePath ?>/user/login
+        // 自动注入 basePath 变量，视图中用 $basePath.'/user/login'
         if (!isset($this->vars['basePath'])) {
             $this->vars['basePath'] = rtrim($this->config['base_path'] ?? '', '/');
         }
@@ -529,7 +529,7 @@ class Core
     /**
      * 输出 CSRF 隐藏字段（在表单内调用）
      *
-     * 用法：<?= $this->csrfField() ?>
+     * 用法：{csrfField()} 在表单模板中输出
      */
     public function csrfField(): string
     {
