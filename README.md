@@ -21,14 +21,15 @@ H2PHP 是一个极简的单入口 PHP 框架。路由即目录结构，模板与
 
 ```
 h2php/
-├── index.php              # 单入口路由器
+├── index.php              # 单入口引导（无需修改）
 ├── .htaccess              # Apache URL 重写
 ├── nginx.conf.example     # Nginx 配置参考
 │
 ├── config/
 │   └── config.php         # 数据库、路由默认值、调试开关
 │
-├── lib/                   # 框架核心（通常不需要修改）
+├── lib/                   # 框架核心（无需修改）
+│   ├── Router.php         # 路由解析与分发
 │   ├── Core.php           # 基类控制器
 │   ├── DB.php             # PDO 数据库封装
 │   └── Request.php        # 请求封装
@@ -36,8 +37,9 @@ h2php/
 ├── app/                   # 你的控制器代码
 │   └── {模块}/{功能}.php
 │
-├── views/                 # HTML 模板（与 app/ 镜像，精确到方法）
-│   └── {模块}/{功能}/{方法}.html
+├── views/                 # HTML 模板（支持两级，见下方说明）
+│   ├── {模块}/{功能}/{方法}.html   # 精确到方法（优先）
+│   └── {模块}/{功能}.html         # 控制器级（fallback）
 │
 └── static/                # 静态资源（CSS / JS / 图片）
 ```
@@ -104,12 +106,15 @@ class main extends \Lib\Core
     {
         $goods = $this->db->table('goods')->where('id=?', [$id])->fetch();
         $this->set('goods', $goods);
-        $this->render(); // 自动渲染 views/goods/detail.html
+        $this->render();
+        // render() 自动查找模板，优先级：
+        //   1. views/goods/detail/view.html  （精确到方法）
+        //   2. views/goods/detail.html        （fallback）
     }
 }
 ```
 
-**创建模板** `views/goods/detail/view.html`：
+**创建模板** `views/goods/detail/view.html`（或 `views/goods/detail.html`）：
 
 ```html
 <!DOCTYPE html>
@@ -122,6 +127,8 @@ class main extends \Lib\Core
 ```
 
 访问 `/goods/detail/view/100`，无需任何额外配置。
+
+> **模板查找规则**：`render()` 先找 `views/a/b/c.html`，不存在则自动降级到 `views/a/b.html`。两种目录组织方式可混用。
 
 ---
 
