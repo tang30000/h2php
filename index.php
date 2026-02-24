@@ -32,7 +32,7 @@ require LIB . '/Core.php';
 require LIB . '/Router.php';
 
 // ── 3. 自动加载 lib/ 下其他扩展库（如 Auth.php、Mail.php 等）──
-$coreFiles = ['Request.php', 'DB.php', 'Core.php', 'Router.php'];
+$coreFiles = ['Request.php', 'DB.php', 'Core.php', 'Router.php', 'StaticFile.php'];
 foreach (glob(LIB . '/*.php') as $file) {
     if (!in_array(basename($file), $coreFiles)) {
         require_once $file;
