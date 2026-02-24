@@ -580,6 +580,10 @@ class Core
             return $this->redisInstance;
         }
 
+        if ($name === 'response') {
+            return new Response();
+        }
+
         return null;
     }
 
