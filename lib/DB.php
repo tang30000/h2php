@@ -263,6 +263,43 @@ class DB
     }
 
     // -------------------------------------------------------------------------
+    // 关联关系辅助（hasMany / belongsTo）
+    // -------------------------------------------------------------------------
+
+    /**
+     * 一对多：获取子表记录（返回可链式的 DB 实例）
+     *
+     * @param string $relTable  关联表名
+     * @param string $fk        外键字段名（在关联表中）
+     * @param mixed  $pkValue   当前记录的主键值
+     *
+     * 用法：
+     *   // 获取 user_id=5 的所有文章，可继续链式过滤
+     *   $posts = $this->db->hasMany('posts', 'user_id', 5)
+     *       ->order('id DESC')->limit(10)->fetchAll();
+     */
+    public function hasMany(string $relTable, string $fk, $pkValue): self
+    {
+        return $this->table($relTable)->where("{$fk}=?", [$pkValue]);
+    }
+
+    /**
+     * 多对一：获取父表记录（返回可链式的 DB 实例，通常 ->fetch()）
+     *
+     * @param string $relTable  父表名
+     * @param string $pk        父表主键字段名
+     * @param mixed  $fkValue   当前记录的外键值
+     *
+     * 用法：
+     *   // 获取 post['user_id'] 对应的用户
+     *   $user = $this->db->belongsTo('users', 'id', $post['user_id'])->fetch();
+     */
+    public function belongsTo(string $relTable, string $pk, $fkValue): self
+    {
+        return $this->table($relTable)->where("{$pk}=?", [$fkValue]);
+    }
+
+    // -------------------------------------------------------------------------
     // 内部辅助
     // -------------------------------------------------------------------------
 

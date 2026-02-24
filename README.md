@@ -235,6 +235,75 @@ views/_errors/
 模板内可用三个变量：`$code`（状态码）、`$title`（标题）、`$message`（详细信息）。不存在时自动回退内置样式。
 ---
 
+## CLI 工具
+
+```bash
+# 生成控制器（自动创建 app/user/login.php）
+php h2 make:controller user/login
+
+# 生成视图模板（自动创建 views/user/login/index.html）
+php h2 make:view user/login/index
+
+# 数据库迁移
+php h2 migrate            # 运行未执行的迁移
+php h2 migrate:rollback   # 回滚上一批迁移
+php h2 migrate:status     # 查看迁移状态
+```
+
+---
+
+## 数据库迁移
+
+在 `migrations/` 目录下创建迁移文件：
+
+```php
+// migrations/001_create_articles_table.php
+return new class {
+    public function up(PDO $pdo): void {
+        $pdo->exec("CREATE TABLE `articles` (
+            `id`         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `title`      VARCHAR(200) NOT NULL,
+            `body`       TEXT,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
+    public function down(PDO $pdo): void {
+        $pdo->exec("DROP TABLE IF EXISTS `articles`");
+    }
+};
+```
+
+执行后自动在数据库建立 `_migrations` 追踪表，记录每次迁移的批次，支持按批次回滚。
+
+---
+
+## ORM 关联关系
+
+`hasMany` 和 `belongsTo` 都返回可链式的 DB 实例，接下来可继续 `.order()` `.limit()` `.cache()` 等操作：
+
+```php
+// 一对多：获取该用户的所有文章（返回数组）
+$posts = $this->db->hasMany('posts', 'user_id', $user['id'])
+    ->order('id DESC')
+    ->limit(10)
+    ->fetchAll();
+
+// 多对一：获取文章对应的用户（返回单条记录）
+$author = $this->db->belongsTo('users', 'id', $post['user_id'])->fetch();
+
+// 组合使用示例
+public function show(int $id): void {
+    $post   = $this->db->table('posts')->where('id=?', [$id])->fetch();
+    $author = $this->db->belongsTo('users', 'id', $post['user_id'])->fetch();
+    $tags   = $this->db->hasMany('post_tags', 'post_id', $id)->fetchAll();
+
+    $this->setMulti(compact('post', 'author', 'tags'));
+    $this->render();
+}
+```
+
+
 ## 查询缓存
 
 在链式查询的末尾加 `->cache(秒数)` 即可，缓存 key 由 `md5(SQL + 参数)` 自动生成。
