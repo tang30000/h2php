@@ -79,7 +79,7 @@ H2PHP 是一个极简的单入口 PHP 框架。路由即目录结构，模板与
 | 服务容器 / DI | ❌ | ✅ | ✅ | ❌ | ✅ | ✅ |
 | WebSocket | ❌ | ✅ 扩展 | ❌ | ❌ | ❌ | ❌ |
 | 国际化 (i18n) | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| 邮件发送 | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| 邮件发送 | ✅ SMTP | ✅ | ✅ | ✅ | ❌ | ✅ |
 
 #### 工程指标
 
@@ -104,7 +104,7 @@ H2PHP 是一个极简的单入口 PHP 框架。路由即目录结构，模板与
 | 需要丰富生态（支付/短信/OSS 等） | Laravel · ThinkPHP |
 | 旧项目维护（PHP 7.x 环境） | **H2PHP** ✅ · CodeIgniter |
 
-> **H2PHP 的定位**：在功能覆盖上已接近主流全功能框架（覆盖 25/30 项常用功能），但代码量仅为 Laravel 的 **0.5%**，零依赖、零配置、零学习成本。适合追求**极致轻量**和**完全可控**的开发者。
+> **H2PHP 的定位**：在功能覆盖上已接近主流全功能框架（覆盖 26/30 项常用功能），但代码量仅为 Laravel 的 **0.5%**，零依赖、零配置、零学习成本。适合追求**极致轻量**和**完全可控**的开发者。
 
 ---
 
@@ -357,6 +357,8 @@ class main extends \Lib\Core
 | `$this->abort($code, $msg)` | 终止并输出错误页（支持自定义 `_errors/` 模板） |
 | `$this->success($data, $msg)` | JSON 成功响应 `{"code":0,"msg":"ok","data":...}` |
 | `$this->fail($msg, $code)` | JSON 失败响应 `{"code":-1,"msg":"...","data":null}` |
+| `$this->log($level, $msg, $ctx)` | 写入日志（info/warning/error/debug） |
+| `$this->mail($to, $subj, $body)` | 发送邮件（SMTP） |
 | `$this->upload($field, $dir)` | 文件上传辅助，返回 `Upload` 实例 |
 | `$this->on($event, $fn)` | 注册事件监听器（请求内有效） |
 | `$this->fire($event, $data)` | 触发事件 |
@@ -969,6 +971,42 @@ $this->log('error', '支付失败', ['order_id' => 123, 'reason' => $msg]);
 [2026-02-25 14:30:15] [INFO] 用户登录 {"user_id":5}
 [2026-02-25 14:30:16] [ERROR] 支付失败 {"order_id":123,"reason":"余额不足"}
 ```
+
+---
+
+## 邮件发送
+
+```php
+// 一行快捷发送（含 HTML 标签自动识别为 HTML 邮件）
+$this->mail('user@example.com', '注册成功', '<h1>欢迎</h1><p>感谢注册！</p>');
+
+// 链式（高级）
+$mail = new \Lib\Mail($this->config['mail']);
+$ok = $mail->to('user@example.com')
+    ->cc('admin@example.com')
+    ->subject('订单确认')
+    ->html('<p>您的订单已创建</p>')
+    ->send();
+
+if (!$ok) {
+    $this->log('error', '邮件发送失败', ['error' => $mail->error()]);
+}
+```
+
+SMTP 配置（`config.php`）：
+
+```php
+'mail' => [
+    'host'     => 'smtp.qq.com',     // QQ / Gmail / 阿里企业邮等
+    'port'     => 465,
+    'user'     => 'noreply@example.com',
+    'password' => '授权码',           // 非登录密码
+    'name'     => 'H2PHP App',       // 发件人显示名
+    'ssl'      => true,
+],
+```
+
+> 零依赖，内部通过 socket 直连 SMTP 服务器，不需要 PHPMailer 等第三方库。
 
 ---
 

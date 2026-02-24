@@ -57,5 +57,17 @@ return [
         // 'AuthCheck',  // 全局登录检查
     ],
 
+    // 邮件 SMTP 配置（可选）
+    // 支持 QQ邮箱 / Gmail / 阿里企业邮 等标准 SMTP
+    'mail' => [
+        'host'     => 'smtp.qq.com',
+        'port'     => 465,
+        'user'     => '',             // SMTP 账号
+        'password' => '',             // SMTP 授权码（非登录密码）
+        'from'     => '',             // 发件人地址（默认同 user）
+        'name'     => 'H2PHP App',    // 发件人显示名
+        'ssl'      => true,
+    ],
+
 ];
 

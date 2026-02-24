@@ -390,6 +390,26 @@ class Core
     }
 
     /**
+     * 发送邮件（快捷方式）
+     *
+     * 用法：
+     *   $this->mail('user@example.com', '注册成功', '<h1>欢迎</h1>');
+     *
+     * 高级用法（链式）：
+     *   $mail = new \Lib\Mail($this->config['mail']);
+     *   $mail->to('a@b.com')->cc('c@d.com')->subject('标题')->html('<p>内容</p>')->send();
+     *
+     * @param string $to      收件人
+     * @param string $subject 主题
+     * @param string $body    正文（含 HTML 标签自动识别为 HTML 邮件）
+     * @return bool 发送成功返回 true
+     */
+    public function mail(string $to, string $subject, string $body): bool
+    {
+        return \Lib\Mail::quick($this->config['mail'] ?? [], $to, $subject, $body);
+    }
+
+    /**
      * 文件上传辅助（返回可链式配置的 Upload 实例）
      *
      * 用法：
