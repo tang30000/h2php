@@ -2,6 +2,8 @@
 
 > 轻量、原生、无侵入的 PHP MVC 框架
 
+[English Documentation](README.en.md)
+
 H2PHP 是一个极简的单入口 PHP 框架。路由即目录结构，模板与逻辑分离，没有复杂配置，没有 Composer 依赖，保留 PHP 原生开发的舒适度。
 
 ---
