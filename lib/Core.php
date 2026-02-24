@@ -573,6 +573,13 @@ class Core
             return $this->requestInstance;
         }
 
+        if ($name === 'redis') {
+            if (!$this->redisInstance) {
+                $this->redisInstance = new Redis($this->config['redis'] ?? []);
+            }
+            return $this->redisInstance;
+        }
+
         return null;
     }
 
