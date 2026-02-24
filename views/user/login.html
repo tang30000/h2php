@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <?= htmlspecialchars($title) ?>
+    </title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .card {
+            background: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, .1);
+            width: 360px;
+        }
+
+        h1 {
+            font-size: 22px;
+            color: #2c3e50;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .error {
+            background: #fdecea;
+            color: #c0392b;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        input[type=text],
+        input[type=password] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+            margin-bottom: 16px;
+            transition: border .2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .hint {
+            margin-top: 16px;
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1>
+            <?= htmlspecialchars($title) ?>
+        </h1>
+
+        <?php if ($error): ?>
+        <div class="error">
+            <?= htmlspecialchars($error) ?>
+        </div>
+        <?php endif; ?>
+
+        <form method="POST" action="/user/login/submit">
+            <label for="username">用户名</label>
+            <input type="text" id="username" name="username" placeholder="请输入用户名" autofocus>
+
+            <label for="password">密码</label>
+            <input type="password" id="password" name="password" placeholder="请输入密码">
+
+            <button type="submit">登 录</button>
+        </form>
+
+        <p class="hint">示例账号：admin / 123456</p>
+    </div>
+</body>
+
+</html>

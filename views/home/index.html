@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= htmlspecialchars($title) ?></title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f7fa; color: #333; padding: 40px; }
+        h1   { color: #2c3e50; margin-bottom: 8px; }
+        .badge { display:inline-block; background:#3498db; color:#fff; padding:2px 10px;
+                 border-radius:20px; font-size:13px; margin-bottom:24px; }
+        table { width:100%; border-collapse:collapse; background:#fff;
+                border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+        th    { background:#2c3e50; color:#fff; padding:12px 16px; text-align:left; }
+        td    { padding:12px 16px; border-bottom:1px solid #eee; }
+        tr:last-child td { border-bottom:none; }
+        td a  { color:#3498db; text-decoration:none; }
+        td a:hover { text-decoration:underline; }
+        .footer { margin-top:24px; color:#999; font-size:13px; }
+    </style>
+</head>
+<body>
+    <h1><?= htmlspecialchars($title) ?></h1>
+    <span class="badge">v<?= htmlspecialchars($version) ?></span>
+
+    <table>
+        <thead>
+            <tr><th>URL 示例</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+            <?php foreach ($routes as $url => $desc): ?>
+            <tr>
+                <td><a href="<?= htmlspecialchars($url) ?>"><?= htmlspecialchars($url) ?></a></td>
+                <td><?= htmlspecialchars($desc) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+
+    <p class="footer">H2PHP 轻量级 MVC 框架 — 路由即目录，简洁高效。</p>
+</body>
+</html>

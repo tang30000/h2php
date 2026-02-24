@@ -1,0 +1,35 @@
+# Nginx 配置示例（适用于 h2php）
+#
+# 将此片段放入你的 server {} 块中
+# 确保 root 指向 h2php 目录
+
+server {
+    listen       80;
+    server_name  localhost;
+
+    root   D:/prg/web/h2php;
+    index  index.php;
+
+    # 静态资源直接提供
+    location /static/ {
+        expires 30d;
+        access_log off;
+    }
+
+    # 将所有 PHP 请求转发给 PHP-FPM
+    location ~ \.php$ {
+        fastcgi_pass   127.0.0.1:9000;
+        fastcgi_index  index.php;
+        fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include        fastcgi_params;
+    }
+
+    # 核心路由重写：非实际文件/目录的请求 → index.php?_route=...
+    location / {
+        try_files $uri $uri/ @rewrite;
+    }
+
+    location @rewrite {
+        rewrite ^/(.*)$ /index.php?_route=$1 last;
+    }
+}

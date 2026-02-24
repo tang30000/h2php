@@ -1,0 +1,14 @@
+# 文档目录（不上传到 GitHub）
+doc/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# PHP 日志
+*.log

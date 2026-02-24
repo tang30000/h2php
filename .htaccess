@@ -1,0 +1,9 @@
+Options -Indexes
+RewriteEngine On
+
+# 静态资源直接提供，不走路由
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# 所有请求转发至 index.php
+RewriteRule ^(.*)$ index.php?_route=$1 [QSA,L]
