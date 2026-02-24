@@ -14,7 +14,7 @@ H2PHP 是一个极简的单入口 PHP 框架。路由即目录结构，模板与
 
 - **单入口路由** — 所有请求经由根目录 `index.php` 分发
 - **目录即路由** — URL 结构与文件目录一一对应，一眼看懂
-- **数字位置参数** — URL 中的数字段自动注入为方法参数（分页、ID 等）
+- **数字位置参数** — URL 第 4 段起全部作为位置参数，支持字符串（slug/hash）和整数，按方法类型提示自动转型
 - **模板** — 布局（Layout）、局部模板（Partial）、变量传递，保留原生 PHP 语法
 - **极简依赖** — 仅需 PHP 7.2+，运行时零 Composer 依赖
 - **链式 DB** — PDO 封装，支持链式查询 / 关联关系 / 查询缓存
@@ -85,10 +85,10 @@ h2php/
 
 ```
 URL:  /{a}/{b}/{c}/{d1}/{d2}
-       │   │   │   └─── 数字位置参数（注入为方法参数）
-       │   │   └─────── 方法名（main 类中的 public 方法）
-       │   └─────────── 文件名 → app/{a}/{b}.php
-       └─────────────── 目录   → app/{a}/
+       │   │   │   └─── 位置参数（字符串/整数，按方法类型提示转型）
+       │   │   └───── 方法名（main 类中的 public 方法）
+       │   └───────── 文件名 → app/{a}/{b}.php
+       └───────────── 目录   → app/{a}/
 ```
 
 | URL | 文件 | 调用 |
@@ -98,6 +98,22 @@ URL:  /{a}/{b}/{c}/{d1}/{d2}
 | `/user/login/submit` | `app/user/login.php` | `main::submit()` |
 | `/article/list/show/3` | `app/article/list.php` | `main::show(3)` |
 | `/article/list/show/3/2` | `app/article/list.php` | `main::show(3, 2)` |
+| `/article/show/view/abc123` | `app/article/show.php` | `main::view('abc123')` |
+| `/post/detail/view/php/1` | `app/post/detail.php` | `main::view('php', 1)` |
+
+**位置参数按方法类型提示自动转型：**
+
+```php
+// int 类型提示 → URL 中 '42' 自动转成 42
+public function show(int $id): void { ... }
+
+// string 类型提示 → 原样传入（slug、hash 等）
+public function view(string $slug): void { ... }
+
+// 多参数，混调也没问题
+public function show(string $category, int $page = 1): void { ... }
+// 访问 /article/list/show/php/2 → show('php', 2)
+```
 
 `?key=val` 格式的额外参数通过 `$_GET` / `$_POST` 正常获取。
 
@@ -118,6 +134,9 @@ php h2 make:view user/login/index
 
 # 生成 Job 模板（自动创建 app/jobs/SendWelcomeEmail.php）
 php h2 make:job SendWelcomeEmail
+
+# 生成定时任务模板（自动创建 app/tasks/CleanExpiredTokens.php）
+php h2 make:task CleanExpiredTokens
 ```
 
 ### 数据库迁移
@@ -135,6 +154,13 @@ php h2 queue:work          # 启动 Worker，持续轮询（Ctrl+C 停止）
 php h2 queue:work --once   # 处理一个任务就退出，适合 cron 调度
 php h2 queue:status        # 查看各状态任务数量（pending/done/failed）
 php h2 queue:clear         # 清除已完成、失败的任务记录
+```
+
+### 定时任务（Scheduler）
+
+```bash
+php h2 schedule:run        # 执行所有到期的定时任务
+php h2 schedule:list       # 列出所有已注册的定时任务
 ```
 
 ### 测试
@@ -184,15 +210,21 @@ php -S localhost:8080 index.php
 <?php
 class main extends \Lib\Core
 {
-    // 访问 /goods/detail/view/100 → view(100)
+    // GET /goods/detail/view/100     → view(100)      int
+    // GET /goods/detail/view/abc123  → view('abc123')  string
     public function view(int $id): void
     {
         $goods = $this->db->table('goods')->where('id=?', [$id])->fetch();
         $this->set('goods', $goods);
         $this->render();
-        // render() 自动查找模板，优先级：
-        //   1. views/goods/detail/view.html  （精确到方法）
-        //   2. views/goods/detail.html        （fallback）
+    }
+
+    // 字符串参数示例：GET /goods/detail/slug/iphone-16-pro
+    public function slug(string $slug): void
+    {
+        $goods = $this->db->table('goods')->where('slug=?', [$slug])->fetch();
+        $this->set('goods', $goods);
+        $this->render();
     }
 }
 ```
