@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <?= htmlspecialchars($title ?? 'H2PHP') ?>
+    </title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        nav {
+            background: #1e1b4b;
+            color: #fff;
+            padding: 14px 32px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        nav a {
+            color: #a78bfa;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        nav a:hover {
+            color: #fff;
+        }
+
+        main {
+            max-width: 960px;
+            margin: 32px auto;
+            padding: 0 24px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 24px;
+            color: #999;
+            font-size: 12px;
+            border-top: 1px solid #eee;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+
+<body>
+    <?php $this->partial('nav') ?>
+    <main>
+        <?= $content ?>
+    </main>
+    <?php $this->partial('footer') ?>
+</body>
+
+</html>

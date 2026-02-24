@@ -209,7 +209,45 @@ class main extends \Lib\Core
 
 ---
 
-## Request 封装
+## 布局与局部模板
+
+**目录约定：**
+```
+views/
+├── _layouts/    # 布局文件
+│   └── main.html
+└── _partials/   # 局部模板（header、footer 等）
+    ├── nav.html
+    └── footer.html
+```
+
+**控制器中使用：**
+```php
+public function index(): void
+{
+    $this->layout('main');          // 使用 views/_layouts/main.html
+    $this->set('title', '用户中心');
+    $this->render();
+}
+```
+
+**布局文件** `views/_layouts/main.html`：
+```html
+<!DOCTYPE html>
+<html>
+<head><title><?= $title ?></title></head>
+<body>
+    <?php $this->partial('nav') ?>       <!-- 引入 _partials/nav.html -->
+    <main><?= $content ?></main>         <!-- 页面主体内容自动注入 -->
+    <?php $this->partial('footer') ?>
+</body>
+</html>
+```
+
+> 不调用 `layout()` 时，`render()` 行为与之前完全相同，向后兼容。
+
+---
+
 
 ```php
 $this->request->get('keyword', '');     // $_GET，带默认值

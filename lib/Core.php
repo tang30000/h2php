@@ -50,6 +50,45 @@ class Core
     }
 
     // -------------------------------------------------------------------------
+    // 布局与局部模板
+    // -------------------------------------------------------------------------
+
+    /** @var string|null 布局文件路径（不含扩展名），null = 不使用布局 */
+    private ?string $layout = null;
+
+    /**
+     * 设置布局文件
+     *
+     * 布局文件放在 views/_layouts/ 目录下，
+     * 通过 $content 变量获取页面主体内容。
+     *
+     * 用法：$this->layout('main');  → views/_layouts/main.html
+     *       $this->layout(null);    → 不使用布局
+     */
+    public function layout(?string $name): void
+    {
+        $this->layout = $name;
+    }
+
+    /**
+     * 引入局部模板（header、footer、sidebar 等）
+     *
+     * 局部模板放在 views/_partials/ 目录下。
+     * 用法：$this->partial('header', ['title' => '首页']);
+     *       → views/_partials/header.html，$title 可直接访问
+     */
+    public function partial(string $name, array $vars = []): void
+    {
+        $file = $this->config['path']['views'] . "/_partials/{$name}.html";
+        if (!is_file($file)) {
+            echo "<!-- partial not found: _partials/{$name}.html -->";
+            return;
+        }
+        extract(array_merge($this->vars, $vars), EXTR_SKIP);
+        include $file;
+    }
+
+    // -------------------------------------------------------------------------
     // 渲染
     // -------------------------------------------------------------------------
 
@@ -60,6 +99,8 @@ class Core
      *   1. views/a/b/c.html  （精确到方法）
      *   2. views/a/b.html    （控制器级，fallback）
      *
+     * 如果通过 layout() 设置了布局，页面内容会注入布局的 $content 变量。
+     *
      * @param string|null $tpl  手动指定模板路径（不含扩展名），指定后不走 fallback
      * @param string      $ext  模板文件扩展名，默认 .html
      */
@@ -68,14 +109,11 @@ class Core
         $viewsBase = $this->config['path']['views'];
 
         if ($tpl !== null) {
-            // 手动指定路径，直接使用
             $viewFile = $viewsBase . '/' . $tpl . $ext;
         } else {
-            // 自动推断：先找 a/b/c.html，再 fallback 到 a/b.html
             $viewFile = $viewsBase . '/' . $this->_path . $ext;
 
             if (!is_file($viewFile)) {
-                // _path 形如 "a/b/c"，取前两段得到 "a/b"
                 $parts    = explode('/', $this->_path);
                 $fallback = $parts[0] . '/' . ($parts[1] ?? '');
                 $viewFile = $viewsBase . '/' . $fallback . $ext;
@@ -88,10 +126,24 @@ class Core
             exit;
         }
 
-        // 将变量解包到当前作用域，模板直接用 $varname 访问
         extract($this->vars, EXTR_SKIP);
 
-        include $viewFile;
+        if ($this->layout !== null) {
+            // 有布局：用输出缓冲捕获页面内容，再注入布局 $content
+            ob_start();
+            include $viewFile;
+            $content = ob_get_clean();
+
+            $layoutFile = $viewsBase . '/_layouts/' . $this->layout . $ext;
+            if (!is_file($layoutFile)) {
+                http_response_code(500);
+                echo "布局文件不存在：_layouts/{$this->layout}{$ext}";
+                exit;
+            }
+            include $layoutFile;
+        } else {
+            include $viewFile;
+        }
     }
 
     /**

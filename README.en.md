@@ -209,6 +209,45 @@ class main extends \Lib\Core
 
 ---
 
+## Layouts & Partials
+
+**Directory convention:**
+```
+views/
+├── _layouts/    # Layout files
+│   └── main.html
+└── _partials/   # Reusable partials (nav, footer, sidebar…)
+    ├── nav.html
+    └── footer.html
+```
+
+**Controller usage:**
+```php
+public function index(): void
+{
+    $this->layout('main');        // use views/_layouts/main.html
+    $this->set('title', 'Dashboard');
+    $this->render();
+}
+```
+
+**Layout file** `views/_layouts/main.html`:
+```html
+<!DOCTYPE html>
+<html>
+<head><title><?= $title ?></title></head>
+<body>
+    <?php $this->partial('nav') ?>       <!-- includes _partials/nav.html -->
+    <main><?= $content ?></main>         <!-- page body is injected here -->
+    <?php $this->partial('footer') ?>
+</body>
+</html>
+```
+
+> When `layout()` is not called, `render()` behaves exactly as before — fully backward compatible.
+
+---
+
 ## Request Helper
 
 ```php
