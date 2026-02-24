@@ -10,10 +10,28 @@ class Router
     public static function run(array $config): void
     {
         // ─── 解析路由 ────────────────────────────────────────────
-        // .htaccess 将 URI 作为 _route 参数传入；
-        // PHP 内置服务器可用 ?goods/show/1 风格（无 = 号的 query string）
-        $uri = $_GET['_route'] ?? ($_SERVER['QUERY_STRING'] ?? '');
+        // 优先级：
+        //   1. Apache .htaccess → $_GET['_route']
+        //   2. ?path/to/page 风格 → QUERY_STRING（无 = 号）
+        //   3. /path/to/page 风格 → REQUEST_URI（PHP 内置服务器 pathinfo）
+        $uri = $_GET['_route'] ?? '';
         unset($_GET['_route']);
+
+        if ($uri === '') {
+            $qs = $_SERVER['QUERY_STRING'] ?? '';
+            // QUERY_STRING 不含 = 号时视作路由路径（?user/login 风格）
+            if ($qs !== '' && strpos($qs, '=') === false) {
+                $uri = $qs;
+            }
+        }
+
+        if ($uri === '') {
+            // 从 REQUEST_URI 提取路径（/user/login 风格）
+            $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+            if ($path !== '/' && $path !== '') {
+                $uri = ltrim($path, '/');
+            }
+        }
 
         // 去掉首尾斜线，分割
         $segments = array_values(array_filter(explode('/', trim($uri, '/'))));
