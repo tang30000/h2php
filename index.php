@@ -35,7 +35,7 @@ require LIB . '/Router.php';
 $coreFiles = ['Request.php', 'DB.php', 'Core.php', 'Router.php'];
 foreach (glob(LIB . '/*.php') as $file) {
     if (!in_array(basename($file), $coreFiles)) {
-        require $file;
+        require_once $file;
     }
 }
 
