@@ -6,7 +6,7 @@
 
 // 静态文件直通（PHP 内置服务器）
 require __DIR__ . '/lib/StaticFile.php';
-\Lib\StaticFile::serve();
+\Lib\StaticFile::serve(__DIR__);
 
 // 启动框架
 require __DIR__ . '/lib/Bootstrap.php';
