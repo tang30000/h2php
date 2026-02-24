@@ -175,6 +175,48 @@ class Core
     }
 
     // -------------------------------------------------------------------------
+    // CSRF 保护
+    // -------------------------------------------------------------------------
+
+    /**
+     * 获取（或生成）当前 Session 的 CSRF Token
+     */
+    public function csrfToken(): string
+    {
+        if (empty($_SESSION['_csrf_token'])) {
+            $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['_csrf_token'];
+    }
+
+    /**
+     * 输出 CSRF 隐藏字段（在表单内调用）
+     *
+     * 用法：<?= $this->csrfField() ?>
+     */
+    public function csrfField(): string
+    {
+        $token = htmlspecialchars($this->csrfToken());
+        return "<input type=\"hidden\" name=\"_csrf\" value=\"{$token}\">";
+    }
+
+    /**
+     * 校验 POST 请求中的 CSRF Token
+     * 校验失败时直接返回 403，终止执行。
+     *
+     * 在处理表单提交的方法中调用：$this->csrfVerify();
+     */
+    public function csrfVerify(): void
+    {
+        $submitted = $_POST['_csrf'] ?? '';
+        $expected  = $_SESSION['_csrf_token'] ?? '';
+
+        if (!$expected || !hash_equals($expected, $submitted)) {
+            \Lib\Router::abort(403, 'CSRF token 验证失败，请刷新页面后重试。');
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // 懒加载属性访问（db / request）
     // -------------------------------------------------------------------------
 

@@ -248,6 +248,7 @@ public function index(): void
 
 ---
 
+## Request 封装
 
 ```php
 $this->request->get('keyword', '');     // $_GET，带默认值
@@ -257,6 +258,41 @@ $this->request->isPost();               // 是否 POST 请求
 $this->request->isAjax();              // 是否 AJAX 请求
 $this->request->ip();                   // 客户端 IP
 ```
+
+---
+
+## CSRF 保护
+
+在表单模板中输出隐藏字段：
+
+```html
+<form method="POST" action="/user/login/submit">
+    <?= $csrfField ?>    <!-- 输出 <input type="hidden" name="_csrf" value="..."> -->
+    ...
+</form>
+```
+
+在控制器中传递字段 + 校验：
+
+```php
+// 登录页：传递 CSRF 字段给模板
+public function index(): void {
+    $this->set('csrfField', $this->csrfField());
+    $this->render();
+}
+
+// 提交处理：先校验
+public function submit(): void {
+    $this->csrfVerify();  // 失败自动 403
+    // 继续处理...
+}
+```
+
+| 方法 | 说明 |
+|------|------|
+| `$this->csrfToken()` | 获取（或生成）Session 中的 token |
+| `$this->csrfField()` | 返回隐藏表单字段 HTML 字符串 |
+| `$this->csrfVerify()` | 校验 POST 请求中的 token，失败自动返回 403 |
 
 ---
 

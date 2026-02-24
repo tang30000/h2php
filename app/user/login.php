@@ -18,13 +18,16 @@ class main extends \Lib\Core
     {
         $this->set('title', '用户登录');
         $this->set('error', $this->request->get('error', ''));
-        $this->render(); // → views/user/login.html
+        $this->set('csrfField', $this->csrfField()); // 传 CSRF 隐藏字段给模板
+        $this->render();
     }
 
     // 处理登录表单提交
     // 访问：POST /user/login/submit
     public function submit(): void
     {
+        $this->csrfVerify(); // 先验证 CSRF，失败直接 403
+
         if (!$this->request->isPost()) {
             $this->redirect('/user/login');
         }

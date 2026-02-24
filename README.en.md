@@ -261,6 +261,41 @@ $this->request->ip();                   // Client IP address
 
 ---
 
+## CSRF Protection
+
+Add the hidden token field inside your form template:
+
+```html
+<form method="POST" action="/user/login/submit">
+    <?= $csrfField ?>    <!-- outputs <input type="hidden" name="_csrf" value="..."> -->
+    ...
+</form>
+```
+
+Pass the field from the controller, then verify on submission:
+
+```php
+// Show page: pass the CSRF field to the template
+public function index(): void {
+    $this->set('csrfField', $this->csrfField());
+    $this->render();
+}
+
+// Handle submission: verify first
+public function submit(): void {
+    $this->csrfVerify();  // auto 403 on failure
+    // continue processing...
+}
+```
+
+| Method | Description |
+|--------|-------------|
+| `$this->csrfToken()` | Get (or generate) the session CSRF token |
+| `$this->csrfField()` | Return a hidden `<input>` HTML string |
+| `$this->csrfVerify()` | Validate the submitted token; auto-abort with 403 on failure |
+
+---
+
 ## Requirements
 
 - PHP 7.2+

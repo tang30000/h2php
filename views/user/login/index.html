@@ -108,6 +108,7 @@
         <?php endif; ?>
 
         <form method="POST" action="/user/login/submit">
+            <?= $csrfField ?>
             <label for="username">用户名</label>
             <input type="text" id="username" name="username" placeholder="请输入用户名" autofocus>
 
