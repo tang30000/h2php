@@ -233,7 +233,55 @@ views/_errors/
 ```
 
 模板内可用三个变量：`$code`（状态码）、`$title`（标题）、`$message`（详细信息）。不存在时自动回退内置样式。
+---
 
+## 查询缓存
+
+在链式查询的末尾加 `->cache(秒数)` 即可，缓存 key 由 `md5(SQL + 参数)` 自动生成。
+
+```php
+// 缓存 300 秒（有缓存直接返回，未命中则查库后缓存）
+$articles = $this->db->table('articles')
+    ->where('status=?', [1])
+    ->order('id DESC')
+    ->cache(300)
+    ->fetchAll();
+
+// 强制刷新（第二个参数 true）：忽略旧缓存，重新查库并覆盖
+// 常用于写操作后主动刷新热点数据
+$articles = $this->db->table('articles')
+    ->where('status=?', [1])
+    ->cache(300, true)
+    ->fetchAll();
+```
+
+**典型模式** — 更新后主动刷新缓存：
+
+```php
+public function update(int $id, array $data): void {
+    $this->db->table('articles')->where('id=?', [$id])->update($data);
+
+    // 主动刷新列表和详情的缓存
+    $this->db->table('articles')->order('id DESC')->limit(20)->cache(300, true)->fetchAll();
+    $this->db->table('articles')->where('id=?', [$id])->cache(3600, true)->fetch();
+
+    $this->flash('success', '更新成功');
+    $this->redirect('/article/list');
+}
+```
+
+驱动在 `config/config.php` 中配置（默认 file，无需任何扩展）：
+
+```php
+'cache' => [
+    'driver' => 'file',   // file | redis | memcache | memcached
+    'host'   => '127.0.0.1',
+    'port'   => 6379,
+    'prefix' => 'h2_',
+],
+```
+
+---
 
 ## DB 链式查询
 
