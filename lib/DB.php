@@ -15,6 +15,12 @@ class DB
     private string $limit  = '';
     private string $fields = '*';
 
+    /** @var int 缓存时间（秒），0 表示不缓存 */
+    private int $cacheTime = 0;
+
+    /** @var array|null 缓存驱动配置 */
+    private ?array $cacheConfig = null;
+
     public function __construct(array $config)
     {
         $this->pdo = new \PDO(
@@ -23,6 +29,7 @@ class DB
             $config['password'],
             $config['options'] ?? []
         );
+        $this->cacheConfig = $config['cache'] ?? null;
     }
 
     // -------------------------------------------------------------------------
@@ -35,13 +42,26 @@ class DB
     public function table(string $table): self
     {
         $clone = clone $this;
-        $clone->table  = $table;
-        $clone->where  = '';
-        $clone->params = [];
-        $clone->order  = '';
-        $clone->limit  = '';
-        $clone->fields = '*';
+        $clone->table     = $table;
+        $clone->where     = '';
+        $clone->params    = [];
+        $clone->order     = '';
+        $clone->limit     = '';
+        $clone->fields    = '*';
+        $clone->cacheTime = 0;
         return $clone;
+    }
+
+    /**
+     * 启用查询缓存
+     *
+     * @param int $ttl 缓存秒数，0 等同于不缓存
+     * 用法：->cache(300)->fetchAll()  → 结果缓存 300 秒
+     */
+    public function cache(int $ttl = 3600): self
+    {
+        $this->cacheTime = $ttl;
+        return $this;
     }
 
     /**
@@ -90,7 +110,20 @@ class DB
      */
     public function fetchAll(): array
     {
-        $sql  = $this->buildSelect();
+        $sql = $this->buildSelect();
+
+        if ($this->cacheTime > 0 && $this->cacheConfig) {
+            $key   = md5($sql . serialize($this->params));
+            $cache = Cache::instance($this->cacheConfig);
+            $hit   = $cache->get($key);
+            if ($hit !== null) return $hit;
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($this->params);
+            $data = $stmt->fetchAll();
+            $cache->set($key, $data, $this->cacheTime);
+            return $data;
+        }
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($this->params);
         return $stmt->fetchAll();
@@ -102,7 +135,22 @@ class DB
     public function fetch()
     {
         $this->limit = '1';
-        $sql  = $this->buildSelect();
+        $sql = $this->buildSelect();
+
+        if ($this->cacheTime > 0 && $this->cacheConfig) {
+            $key   = md5($sql . serialize($this->params));
+            $cache = Cache::instance($this->cacheConfig);
+            $hit   = $cache->get($key);
+            if ($hit !== null) return $hit;
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($this->params);
+            $data = $stmt->fetch();
+            if ($data !== false) {
+                $cache->set($key, $data, $this->cacheTime);
+            }
+            return $data;
+        }
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($this->params);
         return $stmt->fetch();
