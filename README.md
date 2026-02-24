@@ -105,7 +105,6 @@ PHP 之所以是 PHP，是因为它**简单、直接、改完刷新就生效**�
 | 中小型 Web 应用、后台管理系统 | **H2PHP** ✅ · CodeIgniter |
 | API 服务（轻量、高性能） | **H2PHP** ✅ · Slim |
 | 快速原型、教学演示 | **H2PHP** ✅ |
-| 大型企业级应用、微服务 | Laravel · Symfony |
 | 需要丰富的第三方 Composer 生态（支付/短信/OSS 等） | Laravel · ThinkPHP |
 | 旧项目维护（PHP 7.x 环境） | **H2PHP** ✅ · CodeIgniter |
 
