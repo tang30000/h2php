@@ -156,6 +156,52 @@ Visit `/goods/detail/view/100` — no additional configuration required.
 
 ---
 
+## Query Caching
+
+Add `.cache(ttl)` to any chainable query to enable automatic caching. The cache key is `md5(SQL + params)`.
+
+```php
+// Cache results for 300 seconds
+$articles = $this->db->table('articles')
+    ->where('status=?', [1])
+    ->order('id DESC')
+    ->cache(300)
+    ->fetchAll();
+
+// Force refresh: bypass existing cache, re-query, and overwrite
+$articles = $this->db->table('articles')
+    ->where('status=?', [1])
+    ->cache(300, true)
+    ->fetchAll();
+```
+
+**Typical force-refresh pattern** — update an article and immediately refresh affected caches:
+
+```php
+public function update(int $id, array $data): void {
+    $this->db->table('articles')->where('id=?', [$id])->update($data);
+
+    // Proactively refresh hot caches
+    $this->db->table('articles')->order('id DESC')->limit(20)->cache(300, true)->fetchAll();
+    $this->db->table('articles')->where('id=?', [$id])->cache(3600, true)->fetch();
+
+    $this->flash('success', 'Updated');
+    $this->redirect('/article/list');
+}
+```
+
+Configure the cache driver in `config/config.php`:
+
+```php
+'cache' => [
+    'driver' => 'file',   // file | redis | memcache | memcached
+    'host'   => '127.0.0.1',
+    'port'   => 6379,
+    'prefix' => 'h2_',
+],
+```
+
+
 ## DB Cheat Sheet
 
 ```php
