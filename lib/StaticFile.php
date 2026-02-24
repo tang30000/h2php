@@ -6,6 +6,7 @@ namespace Lib;
  *
  * 当使用 php -S 开发服务器时，所有请求都经过 index.php。
  * 静态资源（css/js/图片/字体等）应直接返回，不走路由。
+ * 生产环境（Apache/Nginx）有 Rewrite 规则，此类不会生效。
  *
  * 用法（在 index.php 顶部调用）：
  *   require __DIR__ . '/lib/StaticFile.php';
