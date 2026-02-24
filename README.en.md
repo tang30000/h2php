@@ -6,7 +6,7 @@
 >
 > 23 built-in components · 30 tutorials · MySQL / PostgreSQL / SQLite
 
-[中文文档](README.md)
+[中文文档](README.md) Demo：https://github.com/tang30000/h2cms
 
 H2PHP is a minimalist single-entry PHP framework. Routes are directory structures, templates are separated from logic, no complex configuration, no Composer dependencies — preserving the simplicity of native PHP development.
 
