@@ -241,12 +241,12 @@
 
     <div class="tip">
         <span lang="zh">
-            ⚠️ 使用 <code>php -S</code> 内置服务器本地测试时不支持 URL Rewrite，<br>
-            路由需加 <code>?</code> 前缀，例如：<code>http://localhost:8080?user/login/show/42</code>
+            💡 本地开发使用 <code>php -S localhost:8080 index.php</code> 启动。<br>
+            路由同时支持 <code>/user/login</code> 和 <code>?user/login</code> 两种 URL 格式，与生产环境一致。
         </span>
         <span lang="en">
-            ⚠️ The PHP built-in server (<code>php -S</code>) does not support URL Rewrite.<br>
-            Prefix routes with <code>?</code>, e.g. <code>http://localhost:8080?user/login/show/42</code>
+            💡 Start local dev with <code>php -S localhost:8080 index.php</code>.<br>
+            Router supports both <code>/user/login</code> and <code>?user/login</code> URL styles, same as production.
         </span>
     </div>
 
