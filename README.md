@@ -106,7 +106,7 @@ PHP 之所以是 PHP，是因为它**简单、直接、改完刷新就生效**�
 | API 服务（轻量、高性能） | **H2PHP** ✅ · Slim |
 | 快速原型、教学演示 | **H2PHP** ✅ |
 | 大型企业级应用、微服务 | Java (Spring) · Go |
-| 需要丰富的第三方 Composer 生态（支付/短信/OSS 等） | Laravel · ThinkPHP |
+| 需要第三方 Composer 生态（支付/短信/OSS 等） | **H2PHP** ✅ · Laravel · ThinkPHP |
 | 旧项目维护（PHP 7.x 环境） | **H2PHP** ✅ · CodeIgniter |
 
 > **H2PHP 的定位**：在功能覆盖上已接近主流全功能框架（覆盖 26/27 项常用功能），但代码量仅为 Laravel 的 **0.5%**，零依赖、零配置、零学习成本。适合追求**极致轻量**、**性能优先**、**完全可控**，以及不喜欢"伪 Java"式重型架构、希望回归 PHP 代码轻松感的开发者。
@@ -1012,6 +1012,33 @@ SMTP 配置（`config.php`）：
 ```
 
 > 零依赖，内部通过 socket 直连 SMTP 服务器，不需要 PHPMailer 等第三方库。
+
+---
+
+## Composer 第三方包
+
+H2PHP 框架本身零依赖，但完全兼容 Composer 生态。安装了 `vendor/autoload.php` 时自动加载，不安装也不报错：
+
+```bash
+# 安装任意 Composer 包
+composer require overtrue/easy-sms      # 短信
+composer require yansongda/pay          # 支付宝/微信支付
+composer require league/flysystem       # 文件系统/OSS
+composer require phpmailer/phpmailer    # 邮件（如果不想用内置 Mail）
+```
+
+控制器中直接使用：
+
+```php
+use Overtrue\EasySms\EasySms;
+
+public function sendCode(): void {
+    $sms = new EasySms($this->config['sms']);
+    $sms->send('13800138000', ['content' => '验证码：1234']);
+}
+```
+
+> Composer 包是 PHP 生态的公共资源，不是 Laravel 的专属。任何非框架耦合的包都能在 H2PHP 中直接使用。
 
 ---
 

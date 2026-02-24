@@ -15,6 +15,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// ── 1.5 Composer 第三方包（可选，安装了才加载）─────────────────
+$autoload = ROOT . '/vendor/autoload.php';
+if (is_file($autoload)) {
+    require $autoload;
+}
+
 // ── 2. 加载框架核心（保证顺序）──────────────────────────────────
 require LIB . '/Request.php';
 require LIB . '/DB.php';
