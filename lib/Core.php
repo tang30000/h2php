@@ -56,14 +56,31 @@ class Core
     /**
      * 渲染模板
      *
-     * @param string|null $tpl  模板相对路径（不含扩展名），
-     *                          为 null 时自动使用当前控制器同名模板（即 a/b）
+     * 自动查找顺序（$tpl 为 null 时）：
+     *   1. views/a/b/c.html  （精确到方法）
+     *   2. views/a/b.html    （控制器级，fallback）
+     *
+     * @param string|null $tpl  手动指定模板路径（不含扩展名），指定后不走 fallback
      * @param string      $ext  模板文件扩展名，默认 .html
      */
     public function render(?string $tpl = null, string $ext = '.html'): void
     {
-        $tpl      = $tpl ?? $this->_path;
-        $viewFile = $this->config['path']['views'] . '/' . $tpl . $ext;
+        $viewsBase = $this->config['path']['views'];
+
+        if ($tpl !== null) {
+            // 手动指定路径，直接使用
+            $viewFile = $viewsBase . '/' . $tpl . $ext;
+        } else {
+            // 自动推断：先找 a/b/c.html，再 fallback 到 a/b.html
+            $viewFile = $viewsBase . '/' . $this->_path . $ext;
+
+            if (!is_file($viewFile)) {
+                // _path 形如 "a/b/c"，取前两段得到 "a/b"
+                $parts    = explode('/', $this->_path);
+                $fallback = $parts[0] . '/' . ($parts[1] ?? '');
+                $viewFile = $viewsBase . '/' . $fallback . $ext;
+            }
+        }
 
         if (!is_file($viewFile)) {
             http_response_code(500);
