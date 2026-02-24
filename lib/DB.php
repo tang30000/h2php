@@ -4,10 +4,14 @@ namespace Lib;
 /**
  * DB — PDO 数据库封装
  * 提供简洁的链式查询接口和直接 SQL 执行
+ *
+ * 支持数据库：MySQL / MariaDB / PostgreSQL / SQLite
  */
 class DB
 {
     private \PDO $pdo;
+    /** @var string 数据库驱动名 mysql|pgsql|sqlite */
+    private string $driver = 'mysql';
     private string $table  = '';
     private string $where  = '';
     private array  $params = [];
@@ -40,11 +44,29 @@ class DB
     {
         $this->pdo = new \PDO(
             $config['dsn'],
-            $config['user'],
-            $config['password'],
+            $config['user'] ?? null,
+            $config['password'] ?? null,
             $config['options'] ?? []
         );
+        $this->pdo->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
         $this->cacheConfig = $config['cache'] ?? null;
+
+        // 从 DSN 自动检测驱动
+        if (preg_match('/^(mysql|pgsql|sqlite)/i', $config['dsn'], $m)) {
+            $this->driver = strtolower($m[1]);
+        }
+    }
+
+    /**
+     * 引用标识符（表名、列名）
+     * MySQL/MariaDB 用反引号 `name`，PostgreSQL/SQLite 用双引号 "name"
+     */
+    private function qi(string $name): string
+    {
+        if ($this->driver === 'mysql') {
+            return '`' . $name . '`';
+        }
+        return '"' . $name . '"';
     }
 
     // -------------------------------------------------------------------------
@@ -212,7 +234,8 @@ class DB
      */
     public function count(): int
     {
-        $sql  = "SELECT COUNT(*) FROM `{$this->table}`"
+        $t    = $this->qi($this->table);
+        $sql  = "SELECT COUNT(*) FROM {$t}"
               . ($this->where ? " WHERE {$this->where}" : '');
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($this->params);
@@ -229,11 +252,18 @@ class DB
             $data['created_at'] = $data['created_at'] ?? $now;
             $data['updated_at'] = $data['updated_at'] ?? $now;
         }
-        $cols   = implode('`, `', array_keys($data));
+        $cols   = implode(', ', array_map(fn($k) => $this->qi($k), array_keys($data)));
         $marks  = implode(', ', array_fill(0, count($data), '?'));
-        $sql    = "INSERT INTO `{$this->table}` (`{$cols}`) VALUES ({$marks})";
+        $t      = $this->qi($this->table);
+        $sql    = "INSERT INTO {$t} ({$cols}) VALUES ({$marks})";
+        if ($this->driver === 'pgsql') {
+            $sql .= ' RETURNING id';
+        }
         $stmt   = $this->pdo->prepare($sql);
         $stmt->execute(array_values($data));
+        if ($this->driver === 'pgsql') {
+            return $stmt->fetchColumn();
+        }
         return $this->pdo->lastInsertId();
     }
 
@@ -245,9 +275,10 @@ class DB
         if ($this->timestamps) {
             $data['updated_at'] = $data['updated_at'] ?? date('Y-m-d H:i:s');
         }
-        $sets   = implode(', ', array_map(fn($k) => "`{$k}` = ?", array_keys($data)));
+        $sets   = implode(', ', array_map(fn($k) => $this->qi($k) . ' = ?', array_keys($data)));
         $vals   = array_merge(array_values($data), $this->params);
-        $sql    = "UPDATE `{$this->table}` SET {$sets}"
+        $t      = $this->qi($this->table);
+        $sql    = "UPDATE {$t} SET {$sets}"
                 . ($this->where ? " WHERE {$this->where}" : '');
         $stmt   = $this->pdo->prepare($sql);
         $stmt->execute($vals);
@@ -259,7 +290,8 @@ class DB
      */
     public function delete(): int
     {
-        $sql  = "DELETE FROM `{$this->table}`"
+        $t    = $this->qi($this->table);
+        $sql  = "DELETE FROM {$t}"
               . ($this->where ? " WHERE {$this->where}" : '');
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($this->params);
@@ -318,8 +350,9 @@ class DB
      */
     public function restore(): int
     {
-        $sets = "`deleted_at` = NULL";
-        $sql  = "UPDATE `{$this->table}` SET {$sets}"
+        $sets = $this->qi('deleted_at') . ' = NULL';
+        $t    = $this->qi($this->table);
+        $sql  = "UPDATE {$t} SET {$sets}"
               . ($this->where ? " WHERE {$this->where}" : '');
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($this->params);
@@ -467,12 +500,16 @@ class DB
     ): self {
         $clone        = clone $this;
         $clone->table = $relTable;
-        $clone->where = "`{$pivotTable}`.`{$localFk}`=?";
+        $pt = $this->qi($pivotTable);
+        $rt = $this->qi($relTable);
+        $lf = $this->qi($localFk);
+        $rf = $this->qi($relFk);
+        $clone->where  = "{$pt}.{$lf}=?";
         $clone->params = [$pkValue];
         $clone->order  = '';
         $clone->limit  = '';
         // 将 INNER JOIN 嵌入 fields 作为自定义前缀（buildSelect 会原样包含）
-        $clone->fields = "`{$relTable}`.* FROM `{$pivotTable}` INNER JOIN `{$relTable}` ON `{$pivotTable}`.`{$relFk}`=`{$relTable}`.`id`";
+        $clone->fields = "{$rt}.* FROM {$pt} INNER JOIN {$rt} ON {$pt}.{$rf}={$rt}." . $this->qi('id');
         // 标记 table 为空使 buildSelect 跳过 FROM 部分
         $clone->__btm = true;
         return $clone;
@@ -492,14 +529,16 @@ class DB
             return $sql;
         }
 
-        $sql = "SELECT {$this->fields} FROM `{$this->table}`";
+        $t   = $this->qi($this->table);
+        $sql = "SELECT {$this->fields} FROM {$t}";
 
         // 构建 WHERE（含软删除过滤）
         $where = $this->where;
         if ($this->softDeletes && !$this->withTrashed) {
+            $da = $this->qi('deleted_at');
             $sd = $this->onlyTrashed
-                ? "`deleted_at` IS NOT NULL"
-                : "`deleted_at` IS NULL";
+                ? "{$da} IS NOT NULL"
+                : "{$da} IS NULL";
             $where = $where ? "({$where}) AND {$sd}" : $sd;
         }
 
