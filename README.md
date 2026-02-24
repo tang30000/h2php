@@ -81,6 +81,10 @@ URL:  /{a}/{b}/{c}/{d1}/{d2}
 php -S localhost:8080 index.php
 ```
 
+> ⚠️ 内置服务器不支持 URL Rewrite，路由需改用 `?` 前缀：
+> - 正常部署：`http://localhost/user/login/show/42`
+> - 内置服务器：`http://localhost:8080?user/login/show/42`
+
 ### 2. 修改配置
 
 编辑 `config/config.php`，填入数据库连接信息：
