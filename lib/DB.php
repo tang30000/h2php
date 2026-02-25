@@ -31,10 +31,18 @@ class DB
     /** @var array|null 缓存驱动配置 */
     private ?array $cacheConfig = null;
 
-    /** @var bool 是否自动维护时间戳（created_at / updated_at） */
+    /** @var bool 是否自动维护时间戳（created_at / updated_at，存储为 bigint Unix 时间戳） */
     private bool $timestamps = false;
 
-    /** @var bool 是否启用软删除（自动过滤 deleted_at IS NOT NULL 的记录） */
+    /**
+     * @var bool 是否启用软删除
+     *
+     * 软删除通过 updated_at 符号判断：
+     *   - updated_at > 0  → 正常记录
+     *   - updated_at < 0  → 已删除记录（ABS 值仍为真实更新时间）
+     *
+     * 不需要额外的 deleted_at 字段。
+     */
     private bool $softDeletes = false;
 
     /** @var bool 是否包含已软删除记录 */
@@ -120,11 +128,13 @@ class DB
     }
 
     /**
-     * 开启自动时间戳
+     * 开启自动时间戳（存储为 bigint Unix 时间戳）
      *
      * 开启后：
      *   - insert() 自动填充 created_at 和 updated_at（如未传入）
      *   - update() 自动写入 updated_at（如未传入）
+     *
+     * 字段类型要求：BIGINT（存储 Unix 时间戳）
      *
      * 用法：$this->db->table('posts')->timestamps()->insert([...]);
      */
@@ -290,7 +300,7 @@ class DB
     public function insert(array $data)
     {
         if ($this->timestamps) {
-            $now = date('Y-m-d H:i:s');
+            $now = time();
             $data['created_at'] = $data['created_at'] ?? $now;
             $data['updated_at'] = $data['updated_at'] ?? $now;
         }
@@ -315,7 +325,7 @@ class DB
     public function update(array $data): int
     {
         if ($this->timestamps) {
-            $data['updated_at'] = $data['updated_at'] ?? date('Y-m-d H:i:s');
+            $data['updated_at'] = $data['updated_at'] ?? time();
         }
         $sets   = implode(', ', array_map(fn($k) => $this->qi($k) . ' = ?', array_keys($data)));
         $vals   = array_merge(array_values($data), $this->params);
@@ -341,20 +351,25 @@ class DB
     }
 
     // -------------------------------------------------------------------------
-    // 软删除
+    // 软删除（基于 updated_at 符号）
+    //
+    // 原理：updated_at > 0 正常，updated_at < 0 已删除
+    // 优势：不需要额外的 deleted_at 字段，任何有 updated_at 的表都可以软删除
     // -------------------------------------------------------------------------
 
     /**
      * 启用软删除模式
      *
      * 启用后：
-     *   - 查询自动过滤 deleted_at IS NOT NULL 的记录
-     *   - delete() 变为 softDelete()（设置 deleted_at）
+     *   - 查询自动过滤 updated_at < 0 的记录
      *   - 可用 withTrashed()  查询全部（含已删）
      *   - 可用 onlyTrashed() 只查已删除的
-     *   - 可用 restore()     恢复已删记录
+     *   - 可用 softDelete()  将 updated_at 取负
+     *   - 可用 restore()     恢复（取绝对值）
      *
-     * 用法：\$this->db->table('posts')->softDeletes()->where('id=?',[$id])->delete();
+     * 要求表有 updated_at BIGINT 字段即可，无需 deleted_at。
+     *
+     * 用法：$this->db->table('posts')->softDeletes()->where('id=?',[$id])->softDelete();
      */
     public function softDeletes(): self
     {
@@ -380,21 +395,29 @@ class DB
     }
 
     /**
-     * 软删除（设置 deleted_at）
+     * 软删除：将 updated_at 取负数
+     * UPDATE table SET updated_at = -ABS(updated_at) WHERE ...
      */
     public function softDelete(): int
     {
-        return $this->update(['deleted_at' => date('Y-m-d H:i:s')]);
+        $ua   = $this->qi('updated_at');
+        $t    = $this->qi($this->table);
+        $sql  = "UPDATE {$t} SET {$ua} = -ABS({$ua})"
+              . ($this->where ? " WHERE {$this->where}" : '');
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($this->params);
+        return $stmt->rowCount();
     }
 
     /**
-     * 恢复已软删除的记录
+     * 恢复已软删除的记录：将 updated_at 取绝对值
+     * UPDATE table SET updated_at = ABS(updated_at) WHERE ...
      */
     public function restore(): int
     {
-        $sets = $this->qi('deleted_at') . ' = NULL';
+        $ua   = $this->qi('updated_at');
         $t    = $this->qi($this->table);
-        $sql  = "UPDATE {$t} SET {$sets}"
+        $sql  = "UPDATE {$t} SET {$ua} = ABS({$ua})"
               . ($this->where ? " WHERE {$this->where}" : '');
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($this->params);
@@ -574,13 +597,13 @@ class DB
         $t   = $this->qi($this->table);
         $sql = "SELECT {$this->fields} FROM {$t}";
 
-        // 构建 WHERE（含软删除过滤）
+        // 构建 WHERE（含软删除过滤：基于 updated_at 符号）
         $where = $this->where;
         if ($this->softDeletes && !$this->withTrashed) {
-            $da = $this->qi('deleted_at');
+            $ua = $this->qi('updated_at');
             $sd = $this->onlyTrashed
-                ? "{$da} IS NOT NULL"
-                : "{$da} IS NULL";
+                ? "{$ua} < 0"
+                : "{$ua} > 0";
             $where = $where ? "({$where}) AND {$sd}" : $sd;
         }
 
