@@ -165,7 +165,7 @@ class Core
 
         if (!is_file($viewFile)) {
             http_response_code(500);
-            echo "模板文件不存在：{$viewFile}";
+            echo '模板文件不存在';
             exit;
         }
 
@@ -185,7 +185,7 @@ class Core
             $layoutFile = $viewsBase . '/_layouts/' . $this->layout . $ext;
             if (!is_file($layoutFile)) {
                 http_response_code(500);
-                echo "布局文件不存在：_layouts/{$this->layout}{$ext}";
+                echo '布局文件不存在';
                 exit;
             }
             include $layoutFile;
@@ -561,7 +561,7 @@ class Core
     {
         if ($name === 'db') {
             if (!$this->dbInstance) {
-                $this->dbInstance = new DB($this->config['db']);
+                $this->dbInstance = DB::instance($this->config['db']);
             }
             return $this->dbInstance;
         }
@@ -575,7 +575,7 @@ class Core
 
         if ($name === 'redis') {
             if (!$this->redisInstance) {
-                $this->redisInstance = new Redis($this->config['redis'] ?? []);
+                $this->redisInstance = Redis::instance($this->config['redis'] ?? []);
             }
             return $this->redisInstance;
         }

@@ -41,8 +41,8 @@ return [
         'timeout'  => 2.0,
     ],
 
-    // 调试模式（true 时显示详细错误）
-    'debug' => true,
+    // 调试模式（生产环境务必设为 false！可在 config.local.php 中覆盖为 true）
+    'debug' => false,
 
     // 缓存配置（可选）
     // driver: file | redis | memcache | memcached

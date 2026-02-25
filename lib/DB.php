@@ -124,14 +124,18 @@ class DB
     public function table(string $table): self
     {
         $clone = clone $this;
-        $clone->table     = $table;
-        $clone->where     = '';
-        $clone->params    = [];
-        $clone->order     = '';
-        $clone->limit     = '';
-        $clone->fields    = '*';
+        $clone->table      = $table;
+        $clone->where      = '';
+        $clone->params     = [];
+        $clone->order      = '';
+        $clone->limit      = '';
+        $clone->fields     = '*';
         $clone->cacheTime  = 0;
         $clone->cacheForce = false;
+        // 重置软删除状态，防止跨查询泄漏
+        $clone->softDeletes = false;
+        $clone->withTrashed = false;
+        $clone->onlyTrashed = false;
         return $clone;
     }
 

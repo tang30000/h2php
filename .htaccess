@@ -1,6 +1,20 @@
 Options -Indexes
 RewriteEngine On
 
+# 安全头
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set X-XSS-Protection "1; mode=block"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+# 禁止访问敏感文件
+<FilesMatch "\.(env|log|md|yml|yaml|json|lock|xml|ini)$">
+    Require all denied
+</FilesMatch>
+
+# 禁止访问敏感目录
+RewriteRule ^(lib|config|logs|vendor|views)/ - [F,L]
+
 # 静态资源直接提供，不走路由
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

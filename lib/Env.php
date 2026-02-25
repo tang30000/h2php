@@ -74,11 +74,12 @@ class Env
      */
     public static function get(string $key, $default = null)
     {
-        $value = self::$vars[$key] ?? $_ENV[$key] ?? getenv($key);
-
-        if ($value === false || $value === null) {
+        // 优先使用 .env 文件加载的值（不回退到 $_ENV/getenv，防止污染）
+        if (!isset(self::$vars[$key])) {
             return $default;
         }
+
+        $value = self::$vars[$key];
 
         // 自动类型转换
         switch (strtolower($value)) {
