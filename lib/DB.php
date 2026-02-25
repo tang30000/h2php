@@ -446,9 +446,18 @@ class DB
      */
     public function count(): int
     {
-        $t    = $this->qi($this->table);
+        $t     = $this->qi($this->table);
+        $where = $this->where;
+
+        // 软删除过滤（与 buildSelect 一致）
+        if ($this->softDeletes && !$this->withTrashed) {
+            $ua = $this->qi('updated_at');
+            $sd = $this->onlyTrashed ? "{$ua} < 0" : "{$ua} > 0";
+            $where = $where ? "({$where}) AND {$sd}" : $sd;
+        }
+
         $sql  = "SELECT COUNT(*) FROM {$t}"
-              . ($this->where ? " WHERE {$this->where}" : '');
+              . ($where ? " WHERE {$where}" : '');
         $stmt = $this->pdo->prepare($sql);
         $this->runStmt($stmt, $this->params, $sql);
         return (int)$stmt->fetchColumn();
