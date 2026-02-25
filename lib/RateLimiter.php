@@ -30,7 +30,7 @@ class RateLimiter
     public function __construct(array $config = [])
     {
         if (!empty($config['redis'])) {
-            $this->redis = new Redis($config['redis']);
+            $this->redis = Redis::instance($config['redis']);
         } else {
             $this->fileDir = rtrim($config['cache']['dir'] ?? (defined('ROOT') ? ROOT . '/cache' : sys_get_temp_dir()), '/\\')
                            . '/ratelimit';

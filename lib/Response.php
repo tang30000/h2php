@@ -83,6 +83,14 @@ class Response
             $this->status(404)->text('File not found');
             return;
         }
+        // 安全：限制下载路径在 ROOT 目录内
+        if (defined('ROOT')) {
+            $real = realpath($filePath);
+            if ($real === false || strpos($real, realpath(ROOT)) !== 0) {
+                $this->status(403)->text('Forbidden');
+                return;
+            }
+        }
         $fileName = $fileName ?: basename($filePath);
         $this->header('Content-Type', 'application/octet-stream');
         $this->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');

@@ -22,8 +22,14 @@ class Bootstrap
         define('VIEWS',  ROOT . '/views');
         define('CONFIG', ROOT . '/config');
 
-        // ── 1. 启动 Session ──────────────────────────────────────
+        // ── 1. 启动 Session（安全配置）──────────────────────────
         if (session_status() === PHP_SESSION_NONE) {
+            ini_set('session.use_strict_mode', '1');      // 拒绝未初始化的 Session ID
+            ini_set('session.cookie_httponly', '1');       // JS 不可读取 Session Cookie
+            ini_set('session.cookie_samesite', 'Lax');     // 防 CSRF
+            if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+                ini_set('session.cookie_secure', '1');     // HTTPS 时才发送
+            }
             session_start();
         }
 
@@ -39,14 +45,16 @@ class Bootstrap
         require LIB . '/Core.php';
         require LIB . '/Router.php';
 
-        // ── 4. 自动加载 lib/ 下其他扩展库 ────────────────────────
-        $skip = ['Request.php', 'DB.php', 'Core.php', 'Router.php',
-                 'StaticFile.php', 'Bootstrap.php'];
-        foreach (glob(LIB . '/*.php') as $file) {
-            if (!in_array(basename($file), $skip)) {
-                require_once $file;
+        // ── 4. 自动加载 lib/ 下的扩展库（按需加载）──────────────
+        spl_autoload_register(function (string $class) {
+            // Lib\Cache → lib/Cache.php
+            if (strpos($class, 'Lib\\') === 0) {
+                $file = LIB . '/' . substr($class, 4) . '.php';
+                if (is_file($file)) {
+                    require_once $file;
+                }
             }
-        }
+        });
 
         // ── 5. 加载 .env 环境变量（可选）────────────────────────
         Env::load(ROOT . '/.env');

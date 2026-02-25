@@ -66,18 +66,45 @@ class Request
             && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
     }
 
+    /** @var array 受信任的代理 IP（只有这些代理发来的 X-Forwarded-For 才可信） */
+    private static array $trustedProxies = [];
+
+    /** 设置受信任的代理 IP（如 ['127.0.0.1', '10.0.0.0/8']） */
+    public static function setTrustedProxies(array $ips): void
+    {
+        self::$trustedProxies = $ips;
+    }
+
     /**
      * 获取客户端 IP
+     *
+     * 默认只信任 REMOTE_ADDR（安全）。
+     * 在反代（Nginx/CDN）后面时，需先调用 setTrustedProxies() 配置信任的代理 IP，
+     * 才会读取 X-Forwarded-For / X-Real-IP 头。
      */
     public function ip(): string
     {
-        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-            return $_SERVER['HTTP_CLIENT_IP'];
+        $remote = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+        // 仅当 REMOTE_ADDR 在信任列表中，才读取代理头
+        if (!empty(self::$trustedProxies) && self::isProxyTrusted($remote)) {
+            if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                return trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+            }
+            if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+                return $_SERVER['HTTP_X_REAL_IP'];
+            }
         }
-        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            return explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
+
+        return $remote;
+    }
+
+    private static function isProxyTrusted(string $ip): bool
+    {
+        foreach (self::$trustedProxies as $trusted) {
+            if ($trusted === $ip) return true;
         }
-        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        return false;
     }
 
     /**

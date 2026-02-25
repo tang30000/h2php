@@ -178,7 +178,7 @@ class Queue
     private static function redisConn(array $qCfg): \Redis
     {
         $r = new \Redis();
-        $r->connect($qCfg['host'] ?? '127.0.0.1', (int)($qCfg['port'] ?? 6379));
+        $r->pconnect($qCfg['host'] ?? '127.0.0.1', (int)($qCfg['port'] ?? 6379));
         if (!empty($qCfg['password'])) {
             $r->auth($qCfg['password']);
         }
@@ -236,6 +236,11 @@ class Queue
 
     private static function runJob(string $name, array $payload): void
     {
+        // 安全校验：Job 名只允许字母、数字、下划线
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $name)) {
+            throw new \RuntimeException("非法 Job 名称：{$name}");
+        }
+
         $file = defined('APP') ? APP . "/jobs/{$name}.php" : __DIR__ . "/../app/jobs/{$name}.php";
 
         if (!is_file($file)) {

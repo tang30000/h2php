@@ -84,6 +84,10 @@ class Scheduler
         try {
             switch ($task->type) {
                 case 'task':
+                    // 安全校验：Task 名只允许字母、数字、下划线
+                    if (!preg_match('/^[a-zA-Z0-9_]+$/', $task->name)) {
+                        throw new \RuntimeException("非法 Task 名称：{$task->name}");
+                    }
                     $file = defined('APP') ? APP . "/tasks/{$task->name}.php" : __DIR__ . "/../app/tasks/{$task->name}.php";
                     if (!is_file($file)) {
                         throw new \RuntimeException("Task 文件不存在：app/tasks/{$task->name}.php");
@@ -156,7 +160,7 @@ class ScheduledTask
     public function dailyAt(string $time): self
     {
         [$h, $m] = explode(':', $time);
-        return $this->cron(ltrim($m, '0') ?: '0') ->cron("{$m} {$h} * * *");
+        return $this->cron("{$m} {$h} * * *");
     }
 
     /** 每周一凌晨 0 点 */
