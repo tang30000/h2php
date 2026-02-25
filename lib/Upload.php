@@ -71,6 +71,12 @@ class Upload
         if ($this->saved) return $this;
         $this->saved = true;
 
+        // 安全检查：禁止路径穿越
+        if (strpos($this->destDir, '..') !== false) {
+            $this->errorMsg = '上传目录不允许包含 ..（路径穿越）';
+            return $this;
+        }
+
         // 安全检查：禁止上传到代码目录
         $dirParts = explode('/', str_replace('\\', '/', $this->destDir));
         $firstDir = strtolower($dirParts[0] ?? '');
