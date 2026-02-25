@@ -28,8 +28,8 @@ class DB
     /** @var array 视为“重型”的字段类型（小写包含匹配） */
     private const HEAVY_TYPES = ['text', 'blob', 'clob', 'json', 'binary', 'bytea', 'mediumtext', 'longtext', 'mediumblob', 'longblob', 'tinytext', 'tinyblob'];
 
-    /** @var bool 是否手动排除大字段 */
-    private bool $excludeHeavy = false;
+    /** @var bool 是否排除大字段 */
+    private bool $light = false;
 
     /** @var int 缓存时间（秒），0 表示不缓存 */
     private int $cacheTime = 0;
@@ -139,12 +139,12 @@ class DB
     /**
      * 排除大字段（TEXT/BLOB/JSON 等）
      *
-     * 用法：$this->db->table('posts')->excludeHeavy()->fetchAll();
+     * 用法：$this->db->table('posts')->light()->fetchAll();
      * 等价于手动 fields('id, title, status, ...')，但不需要一个个写。
      */
-    public function excludeHeavy(): self
+    public function light(): self
     {
-        $this->excludeHeavy = true;
+        $this->light = true;
         return $this;
     }
 
@@ -273,10 +273,10 @@ class DB
             $this->limit = (string)self::MAX_ROWS;
         }
 
-        // fields=* 时：手动 excludeHeavy 或 LIMIT > HEAVY_LIMIT 自动排除大字段
+        // fields=* 时：手动 light() 或 LIMIT > HEAVY_LIMIT 自动排除大字段
         if ($this->fields === '*') {
             $limitNum = (int)$this->limit;
-            if ($this->excludeHeavy || $limitNum > self::HEAVY_LIMIT) {
+            if ($this->light || $limitNum > self::HEAVY_LIMIT) {
                 $light = $this->getLightFields();
                 if ($light) {
                     $this->fields = $light;
