@@ -48,7 +48,7 @@ class Cache
 
             case 'redis':
                 $this->conn = new \Redis();
-                $this->conn->connect($host, $config['port'] ?? 6379);
+                $this->conn->pconnect($host, $config['port'] ?? 6379);
                 if (!empty($config['password'])) {
                     $this->conn->auth($config['password']);
                 }
@@ -123,11 +123,11 @@ class Cache
                 return $this->conn->set($key, $value, $ttl);
 
             case 'redis':
-                $res = $this->conn->set($key, serialize($value));
+                $val = serialize($value);
                 if ($ttl > 0) {
-                    $this->conn->expire($key, $ttl);
+                    return $this->conn->setex($key, $ttl, $val);
                 }
-                return $res;
+                return $this->conn->set($key, $val);
 
             case 'file':
                 return $this->fileSet($key, $value, $ttl);

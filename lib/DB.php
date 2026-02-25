@@ -552,6 +552,9 @@ class DB
      */
     public function update(array $data): int
     {
+        if (!$this->where) {
+            throw new \RuntimeException('update() requires a WHERE clause. Use exec() for raw SQL if intentional.');
+        }
         if ($this->timestamps) {
             $data['updated_at'] = $data['updated_at'] ?? time();
         }
@@ -570,6 +573,9 @@ class DB
      */
     public function delete(): int
     {
+        if (!$this->where) {
+            throw new \RuntimeException('delete() requires a WHERE clause. Use exec() for raw SQL if intentional.');
+        }
         $t    = $this->qi($this->table);
         $sql  = "DELETE FROM {$t}"
               . ($this->where ? " WHERE {$this->where}" : '');
@@ -628,6 +634,9 @@ class DB
      */
     public function softDelete(): int
     {
+        if (!$this->where) {
+            throw new \RuntimeException('softDelete() requires a WHERE clause.');
+        }
         $ua   = $this->qi('updated_at');
         $t    = $this->qi($this->table);
         $sql  = "UPDATE {$t} SET {$ua} = -ABS({$ua})"
@@ -643,6 +652,9 @@ class DB
      */
     public function restore(): int
     {
+        if (!$this->where) {
+            throw new \RuntimeException('restore() requires a WHERE clause.');
+        }
         $ua   = $this->qi('updated_at');
         $t    = $this->qi($this->table);
         $sql  = "UPDATE {$t} SET {$ua} = ABS({$ua})"
