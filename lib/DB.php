@@ -184,6 +184,68 @@ class DB
     }
 
     /**
+     * 游标分页（高性能，适合深页 / 无限滚动 / API）
+     *
+     * 基于主键索引定位，无论第几页性能都一样。
+     * 返回结构：['data' => [...], 'next_cursor' => 123, 'has_more' => true]
+     *
+     * @param int    $perPage 每页条数
+     * @param int    $cursor  游标值（上一页最后一条的 ID，0 表示从头开始）
+     * @param string $column  游标列名（默认 id）
+     * @param string $dir     排序方向 DESC 或 ASC
+     *
+     * 用法：
+     *   // 第一页
+     *   $result = $this->db->table('posts')->where('status=?',['published'])
+     *       ->cursorPaginate(10);
+     *
+     *   // 下一页（传入上一页返回的 next_cursor）
+     *   $result = $this->db->table('posts')->where('status=?',['published'])
+     *       ->cursorPaginate(10, $lastCursor);
+     *
+     * @return array{data: array, next_cursor: int|null, has_more: bool}
+     */
+    public function cursorPaginate(int $perPage = 10, int $cursor = 0, string $column = 'id', string $dir = 'DESC'): array
+    {
+        $isDesc = strtoupper($dir) === 'DESC';
+        $op     = $isDesc ? '<' : '>';
+        $col    = $this->qi($column);
+
+        // 在已有 WHERE 基础上追加游标条件
+        if ($cursor > 0) {
+            $cursorWhere = "{$col} {$op} ?";
+            if ($this->where) {
+                $this->where = "({$this->where}) AND {$cursorWhere}";
+            } else {
+                $this->where = $cursorWhere;
+            }
+            $this->params[] = $cursor;
+        }
+
+        $this->order = "{$col} {$dir}";
+        // 多取一条用于判断是否有下一页
+        $this->limit = (string)($perPage + 1);
+
+        $sql  = $this->buildSelect();
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($this->params);
+        $rows = $stmt->fetchAll();
+
+        $hasMore = count($rows) > $perPage;
+        if ($hasMore) {
+            array_pop($rows);  // 去掉多取的那条
+        }
+
+        $nextCursor = $hasMore && !empty($rows) ? end($rows)[$column] : null;
+
+        return [
+            'data'        => $rows,
+            'next_cursor' => $nextCursor,
+            'has_more'    => $hasMore,
+        ];
+    }
+
+    /**
      * 获取多条记录
      */
     public function fetchAll(): array
