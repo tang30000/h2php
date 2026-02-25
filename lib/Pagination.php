@@ -32,10 +32,15 @@ class Pagination
 
     /**
      * 从 DB 查询自动构建分页
+     *
+     * @param DB  $query   查询构建器
+     * @param int $page    当前页码
+     * @param int $perPage 每页条数
+     * @param int $count   预设总数（传入后跳过 SELECT COUNT，省一次查询）
      */
-    public static function fromQuery(DB $query, int $page = 1, int $perPage = 10): self
+    public static function fromQuery(DB $query, int $page = 1, int $perPage = 10, int $count = -1): self
     {
-        $total = $query->count();
+        $total = $count >= 0 ? $count : $query->count();
         $pager = new self($total, $page, $perPage);
         $pager->items = $query
             ->limit($perPage, $pager->offset())
