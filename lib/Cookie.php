@@ -80,16 +80,22 @@ class Cookie
         return isset($_COOKIE[$name]);
     }
 
+    private ?Encryption $encInstance = null;
+
+    private function enc(): Encryption
+    {
+        if (!$this->appKey) {
+            throw new \RuntimeException('Cookie 加密需要配置 app_key');
+        }
+        return $this->encInstance ??= new Encryption($this->appKey);
+    }
+
     /**
      * 加密后存储
      */
     public function setEncrypted(string $name, string $value, int $ttl = 0): void
     {
-        if (!$this->appKey) {
-            throw new \RuntimeException('Cookie 加密需要配置 app_key');
-        }
-        $enc = new Encryption($this->appKey);
-        $this->set($name, $enc->encrypt($value), $ttl);
+        $this->set($name, $this->enc()->encrypt($value), $ttl);
     }
 
     /**
@@ -99,7 +105,6 @@ class Cookie
     {
         $val = $this->get($name);
         if ($val === null || !$this->appKey) return null;
-        $enc = new Encryption($this->appKey);
-        return $enc->decrypt($val);
+        return $this->enc()->decrypt($val);
     }
 }

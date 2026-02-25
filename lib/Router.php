@@ -70,14 +70,14 @@ class Router
         $ctrlFile = $config['path']['app'] . "/{$a}/{$b}.php";
 
         if (!is_file($ctrlFile)) {
-            self::abort(404, "控制器文件不存在：app/{$a}/{$b}.php");
+            self::abort(404, '页面不存在');
         }
 
         require $ctrlFile;
 
         // ─── 实例化 main 类 ──────────────────────────────────────
         if (!class_exists('main')) {
-            self::abort(500, "控制器文件中未找到 main 类：app/{$a}/{$b}.php");
+            self::abort(500, '服务器内部错误');
         }
 
         /** @var \Lib\Core $controller */
@@ -91,12 +91,12 @@ class Router
 
         // ─── 调用方法 ────────────────────────────────────────────
         if (!method_exists($controller, $c)) {
-            self::abort(404, "方法不存在：main::{$c}()");
+            self::abort(404, '页面不存在');
         }
 
         $refMethod = new \ReflectionMethod($controller, $c);
         if (!$refMethod->isPublic()) {
-            self::abort(403, "方法不可访问：main::{$c}()");
+            self::abort(403, '禁止访问');
         }
 
         // 按方法参数顺序注入 d 参数（不足时用默认值）

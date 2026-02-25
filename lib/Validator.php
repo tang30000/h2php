@@ -213,7 +213,7 @@ class Validator
             case 'unique':
                 // unique:table,column
                 [$table, $col] = array_pad(explode(',', $param ?? '', 2), 2, $field);
-                if ($this->db && $this->db->table($table)->where("{$col}=?", [$value])->count() > 0) {
+                if ($this->db && $this->db->table($table)->where("{$col}=?", [$value])->fetchOne()) {
                     return "{$label} 已被占用";
                 }
                 break;

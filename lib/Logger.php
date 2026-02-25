@@ -20,6 +20,9 @@ class Logger
     /** @var string 日志目录 */
     private static string $dir = '';
 
+    /** @var bool 目录是否已确认存在 */
+    private static bool $dirReady = false;
+
     /**
      * 写入日志
      *
@@ -31,8 +34,11 @@ class Logger
     {
         $dir = self::$dir ?: (defined('ROOT') ? ROOT . '/logs' : __DIR__ . '/../logs');
 
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0755, true);
+        if (!self::$dirReady) {
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            self::$dirReady = true;
         }
 
         $file = $dir . '/' . date('Y-m-d') . '.log';
@@ -41,11 +47,25 @@ class Logger
 
         $line = "[{$time}] [{$level}] {$message}";
         if ($context) {
-            $line .= ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $line .= ' ' . json_encode(self::sanitize($context), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
         $line .= PHP_EOL;
 
         file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
+    }
+
+    /** 过滤敏感字段，防止密码/token 等明文写入日志 */
+    private static function sanitize(array $data): array
+    {
+        static $sensitive = ['password', 'passwd', 'pwd', 'token', 'secret', 'app_key', 'api_key', 'authorization'];
+        foreach ($data as $key => &$value) {
+            if (is_string($key) && in_array(strtolower($key), $sensitive, true)) {
+                $value = '***';
+            } elseif (is_array($value)) {
+                $value = self::sanitize($value);
+            }
+        }
+        return $data;
     }
 
     /** @param string $dir 自定义日志目录 */

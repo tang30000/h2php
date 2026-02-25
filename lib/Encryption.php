@@ -28,7 +28,9 @@ class Encryption
 
     public function __construct(string $key)
     {
-        $this->key = $key;
+        // 确保密钥为 32 字节（AES-256 要求）
+        // 过长截断，过短用 SHA-256 派生
+        $this->key = strlen($key) === 32 ? $key : hash('sha256', $key, true);
     }
 
     /**
@@ -78,11 +80,17 @@ class Encryption
 
     public static function enc(string $plaintext): string
     {
+        if (!self::$globalKey) {
+            throw new \RuntimeException('请先调用 Encryption::setKey() 设置密钥');
+        }
         return (new self(self::$globalKey))->encrypt($plaintext);
     }
 
     public static function dec(string $ciphertext): ?string
     {
+        if (!self::$globalKey) {
+            throw new \RuntimeException('请先调用 Encryption::setKey() 设置密钥');
+        }
         return (new self(self::$globalKey))->decrypt($ciphertext);
     }
 }

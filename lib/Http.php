@@ -168,7 +168,7 @@ class Http
         $body      = substr($response, $headerSize);
         $headers   = $this->parseHeaders($headerStr);
 
-        // 重置链式状态
+        // 重置每次请求的链式状态（baseUrl 保留）
         $this->headers    = [];
         $this->timeoutSec = 30;
         $this->verifySsl  = true;
