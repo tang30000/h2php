@@ -265,9 +265,19 @@ class DB
 
     /**
      * 获取多条记录
+     *
+     * @param int $limit 可选，直接指定 LIMIT（省去单独调 ->limit()）
+     *
+     * 用法：
+     *   ->fetch()      等同旧 fetchAll()
+     *   ->fetch(10)    等同 ->limit(10)->fetchAll()
      */
-    public function fetchAll(): array
+    public function fetch(int $limit = 0): array
     {
+        if ($limit > 0) {
+            $this->limit = (string)$limit;
+        }
+
         // 未设置 LIMIT 时，自动加默认上限防止全表扫描
         if ($this->limit === '') {
             $this->limit = (string)self::MAX_ROWS;
@@ -306,10 +316,16 @@ class DB
         return $stmt->fetchAll();
     }
 
+    /** @deprecated 旧方法名，保留兼容，内部转发到 fetch() */
+    public function fetchAll(): array
+    {
+        return $this->fetchOne();
+    }
+
     /**
-     * 获取单条记录
+     * 获取单条记录（LIMIT 1）
      */
-    public function fetch()
+    public function fetchOne()
     {
         $this->limit = '1';
         $sql = $this->buildSelect();
@@ -323,7 +339,7 @@ class DB
             }
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($this->params);
-            $data = $stmt->fetch();
+            $data = $stmt->fetchOne();
             if ($data !== false) {
                 $cache->set($key, $data, $this->cacheTime);
             }
@@ -332,7 +348,7 @@ class DB
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($this->params);
-        return $stmt->fetch();
+        return $stmt->fetchOne();
     }
 
     /**
@@ -341,7 +357,7 @@ class DB
      */
     public function value()
     {
-        $row = $this->fetch();
+        $row = $this->fetchOne();
         return $row ? reset($row) : null;
     }
 
@@ -637,7 +653,7 @@ class DB
      *
      * 用法：
      *   // 获取 post['user_id'] 对应的用户
-     *   $user = $this->db->belongsTo('users', 'id', $post['user_id'])->fetch();
+     *   $user = $this->db->belongsTo('users', 'id', $post['user_id'])->fetchOne();
      */
     public function belongsTo(string $relTable, string $pk, $fkValue): self
     {

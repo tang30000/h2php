@@ -1,24 +1,24 @@
 <?php
 /**
- * 示例控制器：用户模块 — 登录
- * 对应路由：/user/login/[method]/[...d]
+ * 示例控制器：用户模块 �?登录
+ * 对应路由�?user/login/[method]/[...d]
  */
 
 class main extends \Lib\Core
 {
-    // ── 鉴权示例（可在 before 方法中实现）─────────────────────
+    // ── 鉴权示例（可�?before 方法中实现）─────────────────────
     public function before(): void
     {
         // 此处可加 session 检查、权限验证等
-        // 如需拦截：$this->redirect('/user/login'); exit;
+        // 如需拦截�?this->redirect('/user/login'); exit;
     }
 
-    // 访问：/user/login 或 /user/login/index
+    // 访问�?user/login �?/user/login/index
     public function index(): void
     {
         $this->set('title', '用户登录');
         $this->set('error', $this->request->get('error', ''));
-        $this->set('csrfField', $this->csrfField()); // 传 CSRF 隐藏字段给模板
+        $this->set('csrfField', $this->csrfField()); // �?CSRF 隐藏字段给模�?
         $this->render();
     }
 
@@ -26,7 +26,7 @@ class main extends \Lib\Core
     // 访问：POST /user/login/submit
     public function submit(): void
     {
-        $this->csrfVerify(); // 先验证 CSRF，失败直接 403
+        $this->csrfVerify(); // 先验�?CSRF，失败直�?403
 
         if (!$this->request->isPost()) {
             $this->redirect('/user/login');
@@ -38,7 +38,7 @@ class main extends \Lib\Core
         // 示例：查询数据库（实际使用时取消注释并调整表名）
         // $user = $this->db->table('users')
         //     ->where('username = ? AND password = ?', [$username, md5($password)])
-        //     ->fetch();
+        //     ->fetchOne();
 
         // 模拟验证
         if ($username === 'admin' && $password === '123456') {
@@ -49,12 +49,12 @@ class main extends \Lib\Core
         }
     }
 
-    // 查看用户 — 演示 d 参数作为方法参数
-    // 访问：/user/login/show/42   → show(42)
-    // 访问：/user/login/show/42/2 → show(42, 2)（第2页）
+    // 查看用户 �?演示 d 参数作为方法参数
+    // 访问�?user/login/show/42   �?show(42)
+    // 访问�?user/login/show/42/2 �?show(42, 2)（第2页）
     public function show(int $id, int $page = 1): void
     {
-        // $user = $this->db->table('users')->where('id = ?', [$id])->fetch();
+        // $user = $this->db->table('users')->where('id = ?', [$id])->fetchOne();
         $user = ['id' => $id, 'name' => '示例用户', 'email' => 'user@example.com'];
 
         $this->set('title', "用户 #{$id} 详情");
@@ -63,9 +63,9 @@ class main extends \Lib\Core
         $this->render();
     }
 
-    // 用户列表 — 演示翻页
-    // 访问：/user/login/list        → list(1, 20)（默认）
-    // 访问：/user/login/list/2/10   → list(2, 10)（第2页，每页10条）
+    // 用户列表 �?演示翻页
+    // 访问�?user/login/list        �?list(1, 20)（默认）
+    // 访问�?user/login/list/2/10   �?list(2, 10)（第2页，每页10条）
     public function list(int $page = 1, int $pagesize = 20): void
     {
         $offset = ($page - 1) * $pagesize;
@@ -84,11 +84,11 @@ class main extends \Lib\Core
         $this->render();
     }
 
-    // JSON 接口示例（AJAX 调用）
-    // 访问：/user/login/info/42
+    // JSON 接口示例（AJAX 调用�?
+    // 访问�?user/login/info/42
     public function info(int $id): void
     {
-        // $user = $this->db->table('users')->where('id=?', [$id])->fetch();
+        // $user = $this->db->table('users')->where('id=?', [$id])->fetchOne();
         $user = ['id' => $id, 'name' => '示例用户'];
         $this->json(['code' => 0, 'msg' => 'ok', 'data' => $user]);
     }
