@@ -134,7 +134,14 @@ class DB
      *   - insert() 自动填充 created_at 和 updated_at（如未传入）
      *   - update() 自动写入 updated_at（如未传入）
      *
-     * 字段类型要求：BIGINT（存储 Unix 时间戳）
+     * 建表要求：
+     *   created_at BIGINT NOT NULL DEFAULT 0
+     *   updated_at BIGINT NOT NULL DEFAULT 0
+     *
+     * 值含义：
+     *   0          → 未设置
+     *   > 0        → 正常（Unix 时间戳）
+     *   < 0        → 已软删除（ABS 值为真实时间）
      *
      * 用法：$this->db->table('posts')->timestamps()->insert([...]);
      */
