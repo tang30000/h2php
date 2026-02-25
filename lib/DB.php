@@ -131,17 +131,14 @@ class DB
      * 开启自动时间戳（存储为 bigint Unix 时间戳）
      *
      * 开启后：
-     *   - insert() 自动填充 created_at 和 updated_at（如未传入）
-     *   - update() 自动写入 updated_at（如未传入）
+     *   - insert() 自动填充 updated_at（必须）
+     *   - insert() 自动填充 created_at（仅当表有该字段时）
+     *   - update() 自动写入 updated_at
      *
      * 建表要求：
-     *   created_at BIGINT NOT NULL DEFAULT 0
-     *   updated_at BIGINT NOT NULL DEFAULT 0
-     *
-     * 值含义：
-     *   0          → 未设置
-     *   > 0        → 正常（Unix 时间戳）
-     *   < 0        → 已软删除（ABS 值为真实时间）
+     *   id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY  -- 必须
+     *   updated_at BIGINT NOT NULL DEFAULT 0                           -- 必须
+     *   created_at BIGINT NOT NULL DEFAULT 0                           -- 可选
      *
      * 用法：$this->db->table('posts')->timestamps()->insert([...]);
      */
@@ -370,8 +367,11 @@ class DB
     {
         if ($this->timestamps) {
             $now = time();
-            $data['created_at'] = $data['created_at'] ?? $now;
             $data['updated_at'] = $data['updated_at'] ?? $now;
+            // created_at 可选：仅当表有该字段时才自动填充
+            if (!isset($data['created_at']) && $this->hasColumn('created_at')) {
+                $data['created_at'] = $now;
+            }
         }
         $cols   = implode(', ', array_map(fn($k) => $this->qi($k), array_keys($data)));
         $marks  = implode(', ', array_fill(0, count($data), '?'));
@@ -681,4 +681,27 @@ class DB
         if ($this->limit) $sql .= " LIMIT {$this->limit}";
         return $sql;
     }
+
+    /**
+     * 检测当前表是否有指定列（带缓存）
+     */
+    private function hasColumn(string $column): bool
+    {
+        $key = $this->table;
+        if (!isset(self::$schemaCache[$key])) {
+            $cols = [];
+            if ($this->driver === 'sqlite') {
+                $rows = $this->pdo->query("PRAGMA table_info(" . $this->qi($this->table) . ")")->fetchAll();
+                foreach ($rows as $r) $cols[] = $r['name'];
+            } else {
+                $rows = $this->pdo->query("SHOW COLUMNS FROM " . $this->qi($this->table))->fetchAll();
+                foreach ($rows as $r) $cols[] = $r['Field'];
+            }
+            self::$schemaCache[$key] = $cols;
+        }
+        return in_array($column, self::$schemaCache[$key]);
+    }
+
+    /** @var array 表结构缓存 */
+    private static array $schemaCache = [];
 }
