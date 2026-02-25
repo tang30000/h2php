@@ -22,6 +22,12 @@ class DB
     /** @var int 默认最大查询行数（防止意外全表扫描） */
     public const MAX_ROWS = 10000;
 
+    /** @var int 慢查询阈值（毫秒），超过则自动记录日志 */
+    public const SLOW_THRESHOLD = 100;
+
+    /** @var array DB 单例缓存 */
+    private static array $instances = [];
+
     /** @var int 超过此数量且 fields=* 时，自动排除 TEXT/BLOB 等大字段 */
     public const HEAVY_LIMIT = 50;
 
@@ -75,6 +81,20 @@ class DB
         if (preg_match('/^(mysql|pgsql|sqlite)/i', $config['dsn'], $m)) {
             $this->driver = strtolower($m[1]);
         }
+    }
+
+    /**
+     * 获取 DB 单例（复用连接，避免重复 new PDO）
+     *
+     * 用法：$db = DB::instance($config);
+     */
+    public static function instance(array $config): self
+    {
+        $key = md5($config['dsn'] . ($config['user'] ?? ''));
+        if (!isset(self::$instances[$key])) {
+            self::$instances[$key] = new self($config);
+        }
+        return self::$instances[$key];
     }
 
     /**
@@ -182,6 +202,31 @@ class DB
     }
 
     /**
+     * WHERE IN 条件
+     * 用法：->whereIn('id', [1, 2, 3])
+     *       ->where('status=?', ['active'])->whereIn('id', [1,2,3])
+     */
+    public function whereIn(string $column, array $values): self
+    {
+        if (empty($values)) {
+            // 空数组：永远不匹配
+            $cond = '1=0';
+        } else {
+            $col   = $this->qi($column);
+            $marks = implode(',', array_fill(0, count($values), '?'));
+            $cond  = "{$col} IN ({$marks})";
+        }
+        if ($this->where) {
+            $this->where  .= " AND {$cond}";
+            $this->params  = array_merge($this->params, $values);
+        } else {
+            $this->where  = $cond;
+            $this->params = $values;
+        }
+        return $this;
+    }
+
+    /**
      * ORDER BY
      * 用法：->order('created_at DESC')
      */
@@ -246,7 +291,7 @@ class DB
 
         $sql  = $this->buildSelect();
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($this->params);
+        $this->runStmt($stmt, $this->params, $sql);
         $rows = $stmt->fetchAll();
 
         $hasMore = count($rows) > $perPage;
@@ -305,21 +350,21 @@ class DB
                 if ($hit !== null) return $hit;
             }
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute($this->params);
+            $this->runStmt($stmt, $this->params, $sql);
             $data = $stmt->fetchAll();
             $cache->set($key, $data, $this->cacheTime);  // 写入（覆盖）缓存
             return $data;
         }
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($this->params);
+        $this->runStmt($stmt, $this->params, $sql);
         return $stmt->fetchAll();
     }
 
     /** @deprecated 旧方法名，保留兼容，内部转发到 fetch() */
     public function fetchAll(): array
     {
-        return $this->fetchOne();
+        return $this->fetch();
     }
 
     /**
@@ -338,8 +383,8 @@ class DB
                 if ($hit !== null) return $hit;
             }
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute($this->params);
-            $data = $stmt->fetchOne();
+            $this->runStmt($stmt, $this->params, $sql);
+            $data = $stmt->fetch();
             if ($data !== false) {
                 $cache->set($key, $data, $this->cacheTime);
             }
@@ -347,8 +392,8 @@ class DB
         }
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($this->params);
-        return $stmt->fetchOne();
+        $this->runStmt($stmt, $this->params, $sql);
+        return $stmt->fetch();
     }
 
     /**
@@ -405,19 +450,26 @@ class DB
         $sql  = "SELECT COUNT(*) FROM {$t}"
               . ($this->where ? " WHERE {$this->where}" : '');
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($this->params);
+        $this->runStmt($stmt, $this->params, $sql);
         return (int)$stmt->fetchColumn();
     }
 
     /**
-     * 插入一条记录，返回自增 ID
+     * 插入记录（自动识别单条/批量）
+     *
+     * 单条插入：insert(['name' => 'foo', 'age' => 20])  → 返回自增 ID
+     * 批量插入：insert([['name'=>'a'], ['name'=>'b']])  → 返回插入行数
      */
     public function insert(array $data)
     {
+        // 检测是否为二维数组（批量插入）
+        if (isset($data[0]) && is_array($data[0])) {
+            return $this->insertBatch($data);
+        }
+
         if ($this->timestamps) {
             $now = time();
             $data['updated_at'] = $data['updated_at'] ?? $now;
-            // created_at 可选：仅当表有该字段时才自动填充
             if (!isset($data['created_at']) && $this->hasColumn('created_at')) {
                 $data['created_at'] = $now;
             }
@@ -430,11 +482,55 @@ class DB
             $sql .= ' RETURNING id';
         }
         $stmt   = $this->pdo->prepare($sql);
-        $stmt->execute(array_values($data));
+        $this->runStmt($stmt, array_values($data), $sql);
         if ($this->driver === 'pgsql') {
             return $stmt->fetchColumn();
         }
         return $this->pdo->lastInsertId();
+    }
+
+    /**
+     * 批量插入（内部方法，由 insert() 自动调用）
+     * 一条 SQL 插入所有行，性能比循环 insert 快 10-100 倍
+     *
+     * @return int 插入行数
+     */
+    private function insertBatch(array $rows): int
+    {
+        if (empty($rows)) return 0;
+
+        $now  = time();
+        $hasCreatedAt = $this->timestamps && $this->hasColumn('created_at');
+        $keys = array_keys($rows[0]);
+
+        // 自动补充时间戳字段名
+        if ($this->timestamps) {
+            if (!in_array('updated_at', $keys)) $keys[] = 'updated_at';
+            if ($hasCreatedAt && !in_array('created_at', $keys)) $keys[] = 'created_at';
+        }
+
+        $cols    = implode(', ', array_map(fn($k) => $this->qi($k), $keys));
+        $single  = '(' . implode(',', array_fill(0, count($keys), '?')) . ')';
+        $marks   = implode(', ', array_fill(0, count($rows), $single));
+        $t       = $this->qi($this->table);
+        $sql     = "INSERT INTO {$t} ({$cols}) VALUES {$marks}";
+
+        $vals = [];
+        foreach ($rows as $row) {
+            if ($this->timestamps) {
+                $row['updated_at'] = $row['updated_at'] ?? $now;
+                if ($hasCreatedAt) {
+                    $row['created_at'] = $row['created_at'] ?? $now;
+                }
+            }
+            foreach ($keys as $k) {
+                $vals[] = $row[$k] ?? null;
+            }
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $this->runStmt($stmt, $vals, $sql);
+        return $stmt->rowCount();
     }
 
     /**
@@ -451,7 +547,7 @@ class DB
         $sql    = "UPDATE {$t} SET {$sets}"
                 . ($this->where ? " WHERE {$this->where}" : '');
         $stmt   = $this->pdo->prepare($sql);
-        $stmt->execute($vals);
+        $this->runStmt($stmt, $vals, $sql);
         return $stmt->rowCount();
     }
 
@@ -464,7 +560,7 @@ class DB
         $sql  = "DELETE FROM {$t}"
               . ($this->where ? " WHERE {$this->where}" : '');
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($this->params);
+        $this->runStmt($stmt, $this->params, $sql);
         return $stmt->rowCount();
     }
 
@@ -523,7 +619,7 @@ class DB
         $sql  = "UPDATE {$t} SET {$ua} = -ABS({$ua})"
               . ($this->where ? " WHERE {$this->where}" : '');
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($this->params);
+        $this->runStmt($stmt, $this->params, $sql);
         return $stmt->rowCount();
     }
 
@@ -538,7 +634,7 @@ class DB
         $sql  = "UPDATE {$t} SET {$ua} = ABS({$ua})"
               . ($this->where ? " WHERE {$this->where}" : '');
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($this->params);
+        $this->runStmt($stmt, $this->params, $sql);
         return $stmt->rowCount();
     }
 
@@ -552,7 +648,7 @@ class DB
     public function query(string $sql, array $params = []): array
     {
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+        $this->runStmt($stmt, $params, $sql);
         return $stmt->fetchAll();
     }
 
@@ -562,7 +658,7 @@ class DB
     public function exec(string $sql, array $params = []): int
     {
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+        $this->runStmt($stmt, $params, $sql);
         return $stmt->rowCount();
     }
 
@@ -701,6 +797,24 @@ class DB
     // -------------------------------------------------------------------------
     // 内部辅助
     // -------------------------------------------------------------------------
+
+    /**
+     * 执行语句并记录慢查询
+     * 超过 SLOW_THRESHOLD (100ms) 自动写入日志
+     */
+    private function runStmt(\PDOStatement $stmt, array $params, string $sql): void
+    {
+        $start = microtime(true);
+        $stmt->execute($params);
+        $ms = round((microtime(true) - $start) * 1000, 1);
+
+        if ($ms >= self::SLOW_THRESHOLD && class_exists('\Lib\Logger')) {
+            Logger::write('warning', "[SLOW SQL] {$ms}ms | {$sql}", [
+                'params' => $params,
+                'time_ms' => $ms,
+            ]);
+        }
+    }
 
     private function buildSelect(): string
     {
