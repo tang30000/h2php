@@ -29,6 +29,7 @@ class Redis
 {
     private \Redis $conn;
     private string $prefix;
+    private static array $instances = [];
 
     public function __construct(array $config = [])
     {
@@ -48,6 +49,20 @@ class Redis
         if ($database > 0) {
             $this->conn->select($database);
         }
+    }
+
+    /**
+     * 获取 Redis 单例（复用连接，避免重复建连）
+     *
+     * 用法：$redis = Redis::instance($config);
+     */
+    public static function instance(array $config = []): self
+    {
+        $key = ($config['host'] ?? '127.0.0.1') . ':' . ($config['port'] ?? 6379) . ':' . ($config['database'] ?? 0);
+        if (!isset(self::$instances[$key])) {
+            self::$instances[$key] = new self($config);
+        }
+        return self::$instances[$key];
     }
 
     // =========================================================================
