@@ -225,10 +225,20 @@ class Core
      */
     public function redirect(string $url, int $code = 302): void
     {
-        // 框架内路径自动拼接 base_path
+        // 安全：禁止跳转到外部 URL（防止开放重定向攻击）
+        // 只允许以 / 开头的内部路径，拒绝 //evil.com 和 http:// 等
         if (strpos($url, '/') === 0 && strpos($url, '//') !== 0) {
             $url = $this->url($url);
+        } elseif (preg_match('#^https?://#i', $url)) {
+            // 外部 URL：只在明确允许时才跳转（默认拒绝）
+            // 如果需要跳外部，开发者应直接用 header('Location: ...') 
+            throw new \RuntimeException('redirect() 禁止跳转到外部 URL，请使用 header() 直接跳转');
+        } else {
+            // 拒绝 //evil.com 等 protocol-relative URL
+            $url = '/';
         }
+        // 清理输出缓冲确保 header 生效
+        while (ob_get_level()) ob_end_clean();
         http_response_code($code);
         header("Location: {$url}");
         exit;

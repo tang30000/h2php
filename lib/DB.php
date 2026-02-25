@@ -847,8 +847,9 @@ class DB
         $ms = round((microtime(true) - $start) * 1000, 1);
 
         if ($ms >= self::SLOW_THRESHOLD && class_exists('\Lib\Logger')) {
+            // 安全：隐藏参数值，只保留参数个数，防止密码等敏感值泄露
             Logger::write('warning', "[SLOW SQL] {$ms}ms | {$sql}", [
-                'params' => $params,
+                'param_count' => count($params),
                 'time_ms' => $ms,
             ]);
         }

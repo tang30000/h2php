@@ -73,6 +73,8 @@ class Auth
     {
         if (session_status() !== PHP_SESSION_ACTIVE) session_start();
         unset($_SESSION[$key]);
+        // 安全：轮换 Session ID，防止旧 ID 被重用
+        session_regenerate_id(true);
     }
 
     /**
@@ -141,6 +143,12 @@ class Auth
         if (count($parts) !== 3) return null;
 
         [$header, $body, $signature] = $parts;
+
+        // 安全：校验 alg 头，防止 alg:none 攻击
+        $headerData = json_decode(self::base64UrlDecode($header), true);
+        if (!is_array($headerData) || ($headerData['alg'] ?? '') !== 'HS256') {
+            return null;
+        }
 
         // 验证签名
         $expected = self::base64UrlEncode(
