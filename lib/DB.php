@@ -22,6 +22,15 @@ class DB
     /** @var int 默认最大查询行数（防止意外全表扫描） */
     public const MAX_ROWS = 10000;
 
+    /** @var int 超过此数量且 fields=* 时，自动排除 TEXT/BLOB 等大字段 */
+    public const HEAVY_LIMIT = 50;
+
+    /** @var array 视为“重型”的字段类型（小写包含匹配） */
+    private const HEAVY_TYPES = ['text', 'blob', 'clob', 'json', 'binary', 'bytea', 'mediumtext', 'longtext', 'mediumblob', 'longblob', 'tinytext', 'tinyblob'];
+
+    /** @var bool 是否手动排除大字段 */
+    private bool $excludeHeavy = false;
+
     /** @var int 缓存时间（秒），0 表示不缓存 */
     private int $cacheTime = 0;
 
@@ -124,6 +133,18 @@ class DB
     public function fields(string $fields): self
     {
         $this->fields = $fields;
+        return $this;
+    }
+
+    /**
+     * 排除大字段（TEXT/BLOB/JSON 等）
+     *
+     * 用法：$this->db->table('posts')->excludeHeavy()->fetchAll();
+     * 等价于手动 fields('id, title, status, ...')，但不需要一个个写。
+     */
+    public function excludeHeavy(): self
+    {
+        $this->excludeHeavy = true;
         return $this;
     }
 
@@ -251,6 +272,18 @@ class DB
         if ($this->limit === '') {
             $this->limit = (string)self::MAX_ROWS;
         }
+
+        // fields=* 时：手动 excludeHeavy 或 LIMIT > HEAVY_LIMIT 自动排除大字段
+        if ($this->fields === '*') {
+            $limitNum = (int)$this->limit;
+            if ($this->excludeHeavy || $limitNum > self::HEAVY_LIMIT) {
+                $light = $this->getLightFields();
+                if ($light) {
+                    $this->fields = $light;
+                }
+            }
+        }
+
         $sql = $this->buildSelect();
 
         if ($this->cacheTime > 0 && $this->cacheConfig) {
@@ -687,21 +720,58 @@ class DB
      */
     private function hasColumn(string $column): bool
     {
-        $key = $this->table;
-        if (!isset(self::$schemaCache[$key])) {
-            $cols = [];
-            if ($this->driver === 'sqlite') {
-                $rows = $this->pdo->query("PRAGMA table_info(" . $this->qi($this->table) . ")")->fetchAll();
-                foreach ($rows as $r) $cols[] = $r['name'];
-            } else {
-                $rows = $this->pdo->query("SHOW COLUMNS FROM " . $this->qi($this->table))->fetchAll();
-                foreach ($rows as $r) $cols[] = $r['Field'];
-            }
-            self::$schemaCache[$key] = $cols;
-        }
-        return in_array($column, self::$schemaCache[$key]);
+        $schema = $this->getSchema();
+        return isset($schema[$column]);
     }
 
-    /** @var array 表结构缓存 */
+    /**
+     * 获取表结构：['列名' => '类型', ...]（带缓存）
+     */
+    private function getSchema(): array
+    {
+        $key = $this->table;
+        if (!isset(self::$schemaCache[$key])) {
+            $schema = [];
+            if ($this->driver === 'sqlite') {
+                $rows = $this->pdo->query("PRAGMA table_info(" . $this->qi($this->table) . ")")->fetchAll();
+                foreach ($rows as $r) $schema[$r['name']] = strtolower($r['type']);
+            } elseif ($this->driver === 'pgsql') {
+                $rows = $this->pdo->query(
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='" . $this->table . "'"
+                )->fetchAll();
+                foreach ($rows as $r) $schema[$r['column_name']] = strtolower($r['data_type']);
+            } else {
+                $rows = $this->pdo->query("SHOW COLUMNS FROM " . $this->qi($this->table))->fetchAll();
+                foreach ($rows as $r) $schema[$r['Field']] = strtolower($r['Type']);
+            }
+            self::$schemaCache[$key] = $schema;
+        }
+        return self::$schemaCache[$key];
+    }
+
+    /**
+     * 获取排除大字段后的字段列表
+     * 返回如 "`id`, `title`, `status`, `updated_at`"，或空字符串（全部都是大字段时）
+     */
+    private function getLightFields(): string
+    {
+        $schema = $this->getSchema();
+        $light = [];
+        foreach ($schema as $name => $type) {
+            $isHeavy = false;
+            foreach (self::HEAVY_TYPES as $ht) {
+                if (strpos($type, $ht) !== false) {
+                    $isHeavy = true;
+                    break;
+                }
+            }
+            if (!$isHeavy) {
+                $light[] = $this->qi($name);
+            }
+        }
+        return implode(', ', $light);
+    }
+
+    /** @var array 表结构缓存 ['表名' => ['列名' => '类型']] */
     private static array $schemaCache = [];
 }
