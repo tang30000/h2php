@@ -32,6 +32,17 @@ class Upload
     private ?string $errorMsg   = null;
     private bool    $saved      = false;
 
+    /** 危险扩展名黑名单（不可覆盖，即使 allowTypes 放行也拒绝） */
+    private const DANGER_EXTS = [
+        'php', 'php3', 'php5', 'phtml', 'phar',
+        'sh', 'bash', 'bat', 'cmd', 'exe', 'com',
+        'cgi', 'pl', 'py', 'rb', 'jsp', 'asp', 'aspx',
+        'htaccess', 'htpasswd',
+    ];
+
+    /** 禁止上传到这些目录（防止代码注入） */
+    private const FORBIDDEN_DIRS = ['app', 'lib', 'config', 'views', 'vendor'];
+
     public function __construct(string $field, string $destDir)
     {
         $this->field   = $field;
@@ -60,6 +71,14 @@ class Upload
         if ($this->saved) return $this;
         $this->saved = true;
 
+        // 安全检查：禁止上传到代码目录
+        $dirParts = explode('/', str_replace('\\', '/', $this->destDir));
+        $firstDir = strtolower($dirParts[0] ?? '');
+        if (in_array($firstDir, self::FORBIDDEN_DIRS, true)) {
+            $this->errorMsg = "禁止上传到 {$firstDir}/ 目录（安全限制）";
+            return $this;
+        }
+
         $files = $_FILES[$this->field] ?? null;
 
         if (!$files || empty($files['tmp_name']) || $files['error'] !== UPLOAD_ERR_OK) {
@@ -75,6 +94,13 @@ class Upload
 
         // 扩展名校验（不依赖 MIME，简单实用）
         $ext = strtolower(pathinfo($files['name'], PATHINFO_EXTENSION));
+
+        // 危险扩展名硬拦截（不可覆盖）
+        if (in_array($ext, self::DANGER_EXTS, true)) {
+            $this->errorMsg = sprintf('禁止上传可执行文件类型：.%s', $ext);
+            return $this;
+        }
+
         if ($this->allowExts && !in_array($ext, $this->allowExts, true)) {
             $this->errorMsg = sprintf('不支持的文件类型：.%s（允许：%s）', $ext, implode(', ', $this->allowExts));
             return $this;
