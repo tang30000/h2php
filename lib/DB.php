@@ -158,9 +158,13 @@ class DB
     /**
      * 指定查询字段
      * 用法：->fields('id, name, email')
+     * 安全：只允许字母、数字、下划线、点号、空格、逗号、星号、括号、反引号
      */
     public function fields(string $fields): self
     {
+        if (!preg_match('/^[a-zA-Z0-9_,.*()\s`"]+$/', $fields)) {
+            throw new \RuntimeException('fields() 参数包含不安全字符');
+        }
         $this->fields = $fields;
         return $this;
     }
@@ -238,9 +242,13 @@ class DB
     /**
      * ORDER BY
      * 用法：->order('created_at DESC')
+     * 安全：只允许字母、数字、下划线、点号、空格、逗号、反引号
      */
     public function order(string $order): self
     {
+        if (!preg_match('/^[a-zA-Z0-9_,.\s`"]+$/', $order)) {
+            throw new \RuntimeException('order() 参数包含不安全字符');
+        }
         $this->order = $order;
         return $this;
     }

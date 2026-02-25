@@ -216,7 +216,13 @@ function migrateStatus(): void
     foreach ($files as $file) {
         $name  = basename($file, '.php');
         $done  = isset($ran[$name]);
-        $batch = $done ? $pdo->query("SELECT batch FROM `_migrations` WHERE name='" . addslashes($name) . "'")->fetchColumn() : '-';
+        if ($done) {
+            $bStmt = $pdo->prepare("SELECT batch FROM `_migrations` WHERE name=?");
+            $bStmt->execute([$name]);
+            $batch = $bStmt->fetchColumn();
+        } else {
+            $batch = '-';
+        }
         printf("%-5s %-50s %s\n", $done ? '✓' : '·', $name, $batch);
     }
 }
@@ -229,6 +235,10 @@ function makeJob(string $name): void
 {
     if (!$name) {
         fail("用法: php h2 make:job <类名>  例：php h2 make:job SendWelcomeEmail");
+    }
+    // 安全校验：只允许字母、数字、下划线
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $name)) {
+        fail("Job 名称只允许字母、数字、下划线");
     }
     $path = ROOT . "/app/jobs/{$name}.php";
     if (file_exists($path)) {
@@ -299,6 +309,10 @@ function makeTask(string $name): void
 {
     if (!$name) {
         fail("用法: php h2 make:task <类名>  例：php h2 make:task CleanExpiredTokens");
+    }
+    // 安全校验：只允许字母、数字、下划线
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $name)) {
+        fail("Task 名称只允许字母、数字、下划线");
     }
     $path = ROOT . "/app/tasks/{$name}.php";
     if (file_exists($path)) {

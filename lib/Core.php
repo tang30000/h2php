@@ -110,6 +110,11 @@ class Core
      */
     public function partial(string $name, array $vars = []): void
     {
+        // 安全校验：禁止路径穿越
+        if (preg_match('/\.\.|[\/\\\\]\.\./', $name)) {
+            echo '<!-- partial name invalid -->';
+            return;
+        }
         $file = $this->config['path']['views'] . "/_partials/{$name}.html";
         if (!is_file($file)) {
             echo "<!-- partial not found: _partials/{$name}.html -->";
@@ -551,6 +556,9 @@ class Core
         if (!$expected || !hash_equals($expected, $submitted)) {
             \Lib\Router::abort(403, 'CSRF token 验证失败，请刷新页面后重试。');
         }
+
+        // 验证成功后轮换 token，防止泄露后被重用
+        $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
     }
 
     // -------------------------------------------------------------------------

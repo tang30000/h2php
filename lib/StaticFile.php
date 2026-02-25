@@ -52,14 +52,21 @@ class StaticFile
             return;
         }
 
+        // 安全：防止路径穿越（/../config/config.php 等）
+        $realFile = realpath($file);
+        $realRoot = realpath($root);
+        if ($realFile === false || $realRoot === false || strpos($realFile, $realRoot) !== 0) {
+            return;
+        }
+
         $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
         if (!isset(self::$mimeTypes[$ext])) {
             return;
         }
 
         header('Content-Type: ' . self::$mimeTypes[$ext]);
-        header('Content-Length: ' . filesize($file));
-        readfile($file);
+        header('Content-Length: ' . filesize($realFile));
+        readfile($realFile);
         exit;
     }
 }

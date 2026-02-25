@@ -415,7 +415,7 @@ class Redis
      *       $redis->unlock('order:create', $token);
      *   }
      */
-    public function lock(string $name, int $ttl = 10, string $token = ''): string
+    public function lock(string $name, int $ttl = 10, string $token = '')
     {
         $token = $token ?: bin2hex(random_bytes(16));
         $key   = $this->prefix . 'lock:' . $name;

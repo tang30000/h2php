@@ -67,6 +67,14 @@ class Mail
             return false;
         }
 
+        // 安全：校验所有邮件地址格式，防止 SMTP Header 注入
+        foreach (array_merge($this->to, $this->cc, $this->bcc) as $addr) {
+            if (!filter_var($addr, FILTER_VALIDATE_EMAIL) || preg_match('/[\r\n]/', $addr)) {
+                $this->error = "邮件地址格式无效或包含非法字符：{$addr}";
+                return false;
+            }
+        }
+
         $cfg  = $this->config;
         $host = ($cfg['ssl'] ? 'ssl://' : '') . $cfg['host'];
 
