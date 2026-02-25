@@ -237,6 +237,41 @@ class DB
     }
 
     /**
+     * 输出最终 SQL 和参数（不执行查询）
+     *
+     * 用法：
+     *   $sql = $this->db->table('posts')->where('status=?', ['published'])
+     *       ->order('id DESC')->limit(10)->toSql();
+     *   // 返回: ['sql' => 'SELECT * FROM `posts` WHERE ...', 'params' => ['published']]
+     *
+     * @return array{sql: string, params: array}
+     */
+    public function toSql(): array
+    {
+        if ($this->limit === '') {
+            $this->limit = (string)self::MAX_ROWS;
+        }
+        return [
+            'sql'    => $this->buildSelect(),
+            'params' => $this->params,
+        ];
+    }
+
+    /**
+     * 打印最终 SQL 并终止（调试用）
+     *
+     * 用法：$this->db->table('users')->where('age>?', [18])->dd();
+     */
+    public function dd(): void
+    {
+        $info = $this->toSql();
+        header('Content-Type: text/plain; charset=utf-8');
+        echo $info['sql'] . "\n\n";
+        echo "Params: " . json_encode($info['params'], JSON_UNESCAPED_UNICODE) . "\n";
+        exit;
+    }
+
+    /**
      * 统计行数
      */
     public function count(): int
