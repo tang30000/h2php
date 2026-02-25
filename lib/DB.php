@@ -19,6 +19,9 @@ class DB
     private string $limit  = '';
     private string $fields = '*';
 
+    /** @var int 默认最大查询行数（防止意外全表扫描） */
+    public const MAX_ROWS = 10000;
+
     /** @var int 缓存时间（秒），0 表示不缓存 */
     private int $cacheTime = 0;
 
@@ -168,6 +171,10 @@ class DB
      */
     public function fetchAll(): array
     {
+        // 未设置 LIMIT 时，自动加默认上限防止全表扫描
+        if ($this->limit === '') {
+            $this->limit = (string)self::MAX_ROWS;
+        }
         $sql = $this->buildSelect();
 
         if ($this->cacheTime > 0 && $this->cacheConfig) {
