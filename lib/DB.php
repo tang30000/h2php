@@ -68,11 +68,16 @@ class DB
 
     public function __construct(array $config)
     {
+        // 持久连接（php-fpm 下跨请求复用 TCP 连接）
+        $options = $config['options'] ?? [];
+        if ($config['persistent'] ?? true) {
+            $options[\PDO::ATTR_PERSISTENT] = true;
+        }
         $this->pdo = new \PDO(
             $config['dsn'],
             $config['user'] ?? null,
             $config['password'] ?? null,
-            $config['options'] ?? []
+            $options
         );
         $this->pdo->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
         $this->cacheConfig = $config['cache'] ?? null;

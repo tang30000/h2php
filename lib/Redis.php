@@ -39,9 +39,15 @@ class Redis
         $database = (int)($config['database'] ?? 0);
         $timeout  = (float)($config['timeout'] ?? 2.0);
         $this->prefix = $config['prefix'] ?? 'h2_';
+        $persistent = $config['persistent'] ?? true;
 
         $this->conn = new \Redis();
-        $this->conn->connect($host, $port, $timeout);
+        // 持久连接（php-fpm 下跨请求复用 TCP 连接）
+        if ($persistent) {
+            $this->conn->pconnect($host, $port, $timeout);
+        } else {
+            $this->conn->connect($host, $port, $timeout);
+        }
 
         if ($password !== '') {
             $this->conn->auth($password);
